@@ -1,0 +1,28 @@
+
+{
+    "name": "Nexus-Replication",
+    "tree": {
+        "$className": "DataModel",
+        "ReplicatedStorage": {
+            "$className": "ReplicatedStorage",
+            "NexusReplication": {
+                "$path": "src",
+                "NexusInstance": {
+                    "$path": "module/Nexus-Instance/src"
+                },
+                "NexusProject": {
+                    "$path": "module/Nexus-Project/src",
+                    "NexusInstance": {
+                        "$path": "module/Nexus-Project/module/Nexus-Instance/src"
+                    }
+                }
+            }
+        },
+        "TestService": {
+            "$className": "TestService",
+            "NexusReplicationTests": {
+                "$path": "test"
+            }
+        }
+    }
+}
