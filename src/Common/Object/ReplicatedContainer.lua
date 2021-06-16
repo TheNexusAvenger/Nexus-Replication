@@ -153,23 +153,10 @@ function ReplicatedContainer:AddFromSerializeData(Type)
         local Object = ObjectReplication:CreateObject(Type,Id)
 
         --Deserialize the properties.
-        --Done in coroutines to prevnet overriding changes replicated between deserializing and changing from the server.
-        local RemainingProperties = 0
-        local PropertyLoadedEvent = NexusEventCreator:CreateEvent()
+        local Properties = DecodeIds(SerializationData)
         for _,PropertyName in pairs(Object.SerializedProperties) do
-            RemainingProperties = RemainingProperties + 1
-            coroutine.wrap(function()
-                Object[PropertyName] = DecodeIds(SerializationData[PropertyName])
-                RemainingProperties = RemainingProperties - 1
-                PropertyLoadedEvent:Fire()
-            end)()
+            Object[PropertyName] = Properties[PropertyName]
         end
-
-        --Wait for the properties to deserialize.
-        while RemainingProperties > 0 do
-            PropertyLoadedEvent:Wait()
-        end
-        PropertyLoadedEvent:Disconnect()
 
         --Return the object.
         return Object
