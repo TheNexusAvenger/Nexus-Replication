@@ -12,41 +12,92 @@ local ObjectReplication = NexusReplication:GetObjectReplicator()
 
 local ReplicatedContainer = NexusInstance:Extend()
 ReplicatedContainer:SetClassName("ReplicatedContainer")
-ReplicatedContainer.SerializationMethods = {
-    Raw = function(PropertyValue)
-        return PropertyValue
-    end,
-    ObjectReference = function(PropertyValue)
-        --Return the id if the object exists and isn't disposed.
-        return PropertyValue and ObjectReplication.ObjectRegistry[PropertyValue.Id] and PropertyValue.Id
-    end,
-    ObjectTableReference = function(PropertyValue)
-        local Ids = {}
-        --Return the id if the object exists and isn't disposed.
-        for _,Object in pairs(PropertyValue or {}) do
-            if ObjectReplication.ObjectRegistry[Object.Id] then
-                table.insert(Ids,Object.Id)
-            end
-        end
-        return Ids
-    end,
-}
-ReplicatedContainer.DeserializationMethods = {
-    Raw = function(PropertyValue)
-        return PropertyValue
-    end,
-    ObjectReference = function(PropertyValue)
-        return PropertyValue and ObjectReplication:GetObject(PropertyValue)
-    end,
-    ObjectTableReference = function(PropertyValue)
-        local Objects = {}
-        for _,Id in pairs(PropertyValue) do
-            table.insert(Objects,ObjectReplication:GetObject(Id))
-        end
-        return Objects
-    end,
-}
 ObjectReplication:RegisterType("ReplicatedContainer",ReplicatedContainer)
+
+
+
+--[[
+Encodes a table's ids for serialization.
+--]]
+local function EncodeIds(Table,CheckedValues)
+    CheckedValues = CheckedValues or {}
+
+    --Return if the table is not a table.
+    if Table == nil then return nil end
+    if CheckedValues[Table] or type(Table) ~= "table" then
+        CheckedValues[Table] = true
+        return Table
+    end
+    CheckedValues[Table] = true
+
+    --Return if the item is a replicated container.
+    if Table.Id and Table.IsA and Table:IsA("ReplicatedContainer") then
+        if ObjectReplication.ObjectRegistry[Table.Id] then
+            return {__KeyToDecode=Table.Id}
+        end
+        return nil
+    end
+
+    --Encode the ids of the table.
+    local NewTable = {}
+    local KeysToDecode = {}
+    local HasKeysToDecode = false
+    table.insert(CheckedValues,KeysToDecode)
+    for Key,Value in pairs(Table) do
+        if type(Value) == "table" and Value.Id and Value.IsA and Value:IsA("ReplicatedContainer") then
+            if ObjectReplication.ObjectRegistry[Value.Id] then
+                NewTable[Key] = Value.Id
+                table.insert(KeysToDecode,Key)
+                HasKeysToDecode = true
+            end
+        else
+            NewTable[Key] = EncodeIds(Value,CheckedValues)
+        end
+    end
+
+    --Return the table.
+    return HasKeysToDecode and {__KeysToDecode = KeysToDecode,Data = NewTable} or NewTable
+end
+ReplicatedContainer.EncodeIds = EncodeIds
+
+--[[
+Encodes a table's ids for deserialization.
+--]]
+local function DecodeIds(Table)
+    --Return if the table is not a table.
+    if type(Table) ~= "table" then
+        return Table
+    end
+
+    --Return if the table is an object.
+    if Table.__KeyToDecode then
+        return ObjectReplication:GetObject(Table.__KeyToDecode)
+    end
+
+    --Get the list of keys.
+    local NewTable = Table
+    if NewTable.__KeysToDecode then
+        NewTable = NewTable.Data
+    end
+    local Keys = {}
+    for Key,_ in pairs(NewTable) do
+        table.insert(Keys,Key)
+    end
+
+    --Decode the keys.
+    for _,Key in pairs(Keys) do
+        NewTable[Key] = DecodeIds(NewTable[Key])
+    end
+    if Table.__KeysToDecode then
+        for _,Key in pairs(Table.__KeysToDecode) do
+            NewTable[Key] = ObjectReplication:GetObject(NewTable[Key])
+        end
+    end
+
+    --Return the table.
+    return NewTable
+end
+ReplicatedContainer.DecodeIds = DecodeIds
 
 
 
@@ -63,8 +114,8 @@ function ReplicatedContainer:__new()
     self.Parent = nil
     self.LastParent = nil
     self.Name = self.ClassName
-    self:AddToSerialization("Children","ObjectTableReference")
-    self:AddToSerialization("Parent","ObjectReference")
+    self:AddToSerialization("Children")
+    self:AddToSerialization("Parent")
     self:AddToSerialization("Name")
 
     --Connect parent changes.
@@ -105,10 +156,10 @@ function ReplicatedContainer:AddFromSerializeData(Type)
         --Done in coroutines to prevnet overriding changes replicated between deserializing and changing from the server.
         local RemainingProperties = 0
         local PropertyLoadedEvent = NexusEventCreator:CreateEvent()
-        for PropertyName,PropertyType in pairs(Object.SerializedProperties) do
+        for _,PropertyName in pairs(Object.SerializedProperties) do
             RemainingProperties = RemainingProperties + 1
             coroutine.wrap(function()
-                Object[PropertyName] = self.DeserializationMethods[PropertyType](SerializationData[PropertyName])
+                Object[PropertyName] = DecodeIds(SerializationData[PropertyName])
                 RemainingProperties = RemainingProperties - 1
                 PropertyLoadedEvent:Fire()
             end)()
@@ -132,30 +183,29 @@ Serializes the object.
 function ReplicatedContainer:Serialize()
     --Serialize the properties.
     local Properties = {}
-    for PropertyName,PropertyType in pairs(self.SerializedProperties) do
-        Properties[PropertyName] = self.SerializationMethods[PropertyType](self[PropertyName])
+    for _,PropertyName in pairs(self.SerializedProperties) do
+        Properties[PropertyName] = self[PropertyName]
     end
 
     --Return the properties.
-    return Properties
+    return EncodeIds(Properties)
 end
 
 --[[
 Adds a property to serialize.
 --]]
-function ReplicatedContainer:AddToSerialization(PropertyName,SerializeType)
+function ReplicatedContainer:AddToSerialization(PropertyName)
     --Store the property to serialize.
-    SerializeType = SerializeType or "Raw"
-    self.SerializedProperties[PropertyName] = SerializeType
+    table.insert(self.SerializedProperties,PropertyName)
 
     --Replicate changes from the server to the client.
     if NexusReplication:IsServer() then
         self:AddPropertyFinalizer(PropertyName,function(_,NewValue)
-            self:SendSignal("Changed_"..PropertyName,self.SerializationMethods[SerializeType](NewValue))
+            self:SendSignal("Changed_"..PropertyName,EncodeIds(NewValue))
         end)
     else
         self:ListenToSignal("Changed_"..PropertyName,function(NewValue)
-            self[PropertyName] = self.DeserializationMethods[SerializeType](NewValue)
+            self[PropertyName] = DecodeIds(NewValue)
         end)
     end
 end
