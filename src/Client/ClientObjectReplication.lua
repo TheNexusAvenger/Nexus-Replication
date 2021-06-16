@@ -12,10 +12,10 @@ local SERVER_TIME_THRESHOLD = 0.1
 
 local NexusReplication = require(script.Parent.Parent)
 
-local ObjectCreated = NexusReplication:GetResource("NexusReplicationEvennts.ObjectCreated")
-local SendSignal = NexusReplication:GetResource("NexusReplicationEvennts.SendSignal")
-local GetObjects = NexusReplication:GetResource("NexusReplicationEvennts.GetObjects")
-local GetServerTime = NexusReplication:GetResource("NexusReplicationEvennts.GetServerTime")
+local ObjectCreated = NexusReplication:GetResource("NexusReplicationEvents.ObjectCreated")
+local SendSignal = NexusReplication:GetResource("NexusReplicationEvents.SendSignal")
+local GetObjects = NexusReplication:GetResource("NexusReplicationEvents.GetObjects")
+local GetServerTime = NexusReplication:GetResource("NexusReplicationEvents.GetServerTime")
 local NexusEventCreator = NexusReplication:GetResource("NexusInstance.Event.NexusEventCreator")
 
 local ClientObjectReplication = NexusReplication:GetResource("Common.ObjectReplication"):Extend()
