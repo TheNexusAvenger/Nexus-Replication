@@ -38,6 +38,9 @@ Registers a class for a type.
 --]]
 function ObjectReplication:RegisterType(Type,Class)
     self.TypeClasses[Type] = Class
+    if Class.AddFromSerializeData then
+        Class:AddFromSerializeData(Type)
+    end
 end
 
 --[[

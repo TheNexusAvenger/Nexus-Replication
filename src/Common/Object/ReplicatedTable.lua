@@ -11,7 +11,6 @@ local NexusEventCreator = NexusReplication:GetResource("NexusInstance.Event.Nexu
 
 local ReplicatedTable = NexusReplication:GetResource("Common.Object.ReplicatedContainer"):Extend()
 ReplicatedTable:SetClassName("ReplicatedTable")
-ReplicatedTable:AddFromSerializeData("ReplicatedTable")
 NexusReplication:GetObjectReplicator():RegisterType("ReplicatedTable",ReplicatedTable)
 
 

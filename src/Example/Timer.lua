@@ -10,7 +10,6 @@ local ObjectReplication = NexusReplication:GetObjectReplicator()
 
 local Timer = NexusReplication:GetResource("Common.Object.ReplicatedContainer"):Extend()
 Timer:SetClassName("Timer")
-Timer:AddFromSerializeData("Timer")
 NexusReplication:GetObjectReplicator():RegisterType("Timer",Timer)
 
 
