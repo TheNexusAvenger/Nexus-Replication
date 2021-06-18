@@ -113,6 +113,13 @@ function NexusReplication:GetObjectReplicator()
     end
 end
 
+--[[
+Registers a class for a type.
+--]]
+function NexusReplication:RegisterType(Type,Class)
+    self:GetObjectReplicator():RegisterType(Type,Class)
+end
+
 
 
 return NexusReplication

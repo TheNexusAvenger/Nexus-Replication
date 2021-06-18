@@ -12,7 +12,7 @@ local ObjectReplication = NexusReplication:GetObjectReplicator()
 
 local ReplicatedContainer = NexusInstance:Extend()
 ReplicatedContainer:SetClassName("ReplicatedContainer")
-ObjectReplication:RegisterType("ReplicatedContainer",ReplicatedContainer)
+NexusReplication:RegisterType("ReplicatedContainer",ReplicatedContainer)
 
 
 
