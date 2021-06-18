@@ -120,6 +120,36 @@ function NexusReplication:RegisterType(Type,Class)
     self:GetObjectReplicator():RegisterType(Type,Class)
 end
 
+--[[
+Returns the object for an id.
+Yields if the id doesn't exist.
+--]]
+function NexusReplication:GetObject(Id)
+    return self:GetObjectReplicator():GetObject(Id)
+end
+
+--[[
+Returns the global replicated container.
+--]]
+function NexusReplication:GetGlobalContainer()
+    return self:GetObjectReplicator():GetGlobalContainer()
+end
+
+--[[
+Returns the current server time.
+--]]
+function NexusReplication:GetServerTime()
+    return self:GetObjectReplicator():GetServerTime()
+end
+
+--[[
+Creates an object of a given type.
+Yields if the constructor doesn't exist.
+--]]
+function NexusReplication:CreateObject(Type,Id)
+    return self:GetObjectReplicator():CreateObject(Type,Id)
+end
+
 
 
 return NexusReplication
