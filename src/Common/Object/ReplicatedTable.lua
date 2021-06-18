@@ -149,6 +149,9 @@ Disposes of the object.
 function ReplicatedTable:Dispose()
     self.super:Dispose()
 
+    --Clear the table.
+    self.Table = {}
+
     --Disconnect the events.
     self.ItemAdded:Disconnect()
     self.ItemRemoved:Disconnect()

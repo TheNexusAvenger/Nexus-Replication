@@ -104,6 +104,8 @@ end
 Disposes of a given object id.
 --]]
 function ObjectReplication:DisposeObject(Id)
+    if not Id or not self.ObjectRegistry[Id] then return end
+
     --Move the object to a weak table.
     --This allows getting the object by id if it destroyed
     --but still in use (and isn't garbage collected).

@@ -74,11 +74,20 @@ function Timer:Stop()
 end
 
 --[[
+Completes the timer.
+--]]
+function Timer:Complete()
+    if self.State == "COMPLETE" then return end
+    self.State = "COMPLETE"
+    self.RemainingTimeFromStart = 0
+end
+
+--[[
 Returns the remaining time of the timer.
 --]]
 function Timer:GetRemainingTime()
     if self.State == "ACTIVE" then
-        return  math.max(0,self.RemainingTimeFromStart - (ObjectReplication:GetServerTime() - self.StartTime))
+        return math.max(0,self.RemainingTimeFromStart - (ObjectReplication:GetServerTime() - self.StartTime))
     else
         return self.RemainingTimeFromStart
     end

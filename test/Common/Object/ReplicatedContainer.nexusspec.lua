@@ -86,6 +86,35 @@ NexusUnitTesting:RegisterUnitTest(ReplicatedContainerTest.new("DecodeIds"):SetRu
 end))
 
 --[[
+Tests the FromSerializedData method.
+--]]
+NexusUnitTesting:RegisterUnitTest(ReplicatedContainerTest.new("FromSerializedData"):SetRun(function(self)
+    --Deserialize the test object.
+    local Object = ReplicatedContainer.FromSerializedData({
+        __KeysToDecode = {"Parent"},
+        Data = {
+            Name = "TestName",
+            Parent = -2,
+            Children = {
+                __KeysToDecode = {1,2},
+                Data = {
+                    -3,-1
+                },
+            },
+            UnknownProperty = "Test",
+        },
+    },-5)
+
+    --Create the test object.
+    self:AssertEquals(Object.Name,"TestName")
+    self:AssertEquals(Object.Parent,self.CuT2)
+    self:AssertEquals(Object.Children[1],self.CuT3)
+    self:AssertEquals(Object.Children[2],self.CuT1)
+    self:AssertNil(Object.Children[3])
+    self:AssertNil(Object.UnknownProperty)
+end))
+
+--[[
 Tests the Serialize method.
 --]]
 NexusUnitTesting:RegisterUnitTest(ReplicatedContainerTest.new("Serialize"):SetRun(function(self)
@@ -124,6 +153,33 @@ NexusUnitTesting:RegisterUnitTest(ReplicatedContainerTest.new("Serialize"):SetRu
     --Set the parent of a object not in the object registry and assert it isn't serialized.
     self.CuT4.Parent = self.CuT1
     self:AssertEquals(self.CuT1:Serialize(),{Children={__KeysToDecode={1},Data={-3}},Name="ReplicatedContainer",Name2="Test1"})
+end))
+
+--[[
+Tests the FindFirstChildBy and WaitForChildBy methods.
+--]]
+NexusUnitTesting:RegisterUnitTest(ReplicatedContainerTest.new("FindFirstChildBy"):SetRun(function(self)
+    --Prepapre the components under testing.
+    self.CuT1.Name = "Test1"
+    self.CuT2.Name = "Test2"
+    self.CuT3.Name = "Test3"
+    self.CuT2.Parent = self.CuT1
+    self.CuT3.Parent = self.CuT1
+
+    --Test FindFirstChildBy.
+    self:AssertEquals(self.CuT1:FindFirstChildBy("Name","Test1"),nil)
+    self:AssertEquals(self.CuT1:FindFirstChildBy("Name","Test2"),self.CuT2)
+    self:AssertEquals(self.CuT1:FindFirstChildBy("Name","Test3"),self.CuT3)
+    self:AssertEquals(self.CuT1:FindFirstChildBy("Name","Test4"),nil)
+    self:AssertEquals(self.CuT1:FindFirstChildBy("UnknownProperty","Test4"),nil)
+
+    --Test WaitForChildBy.
+    coroutine.wrap(function()
+        wait()
+        self.CuT3.Name = "Test4"
+    end)()
+    self:AssertEquals(self.CuT1:WaitForChildBy("Name","Test2"),self.CuT2)
+    self:AssertEquals(self.CuT1:WaitForChildBy("Name","Test4"),self.CuT3)
 end))
 
 
