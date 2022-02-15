@@ -16,7 +16,7 @@ local ObjectCreated = NexusReplication:GetResource("NexusReplicationEvents.Objec
 local SendSignal = NexusReplication:GetResource("NexusReplicationEvents.SendSignal")
 local GetObjects = NexusReplication:GetResource("NexusReplicationEvents.GetObjects")
 local GetServerTime = NexusReplication:GetResource("NexusReplicationEvents.GetServerTime")
-local NexusEventCreator = NexusReplication:GetResource("NexusInstance.Event.NexusEventCreator")
+local NexusEvent = NexusReplication:GetResource("NexusInstance.Event.NexusEvent")
 
 local ClientObjectReplication = NexusReplication:GetResource("Common.ObjectReplication"):Extend()
 ClientObjectReplication:SetClassName("ClientObjectReplication")
@@ -34,7 +34,7 @@ function ClientObjectReplication:__new()
     self.IdIncrementer = -1
 
     --Store the loading state.
-    self.ObjectLoaded = NexusEventCreator:CreateEvent()
+    self.ObjectLoaded = NexusEvent.new()
     self.InitialObjectsLoading = 0
     self.InitialIds = nil --Set in LoadServerObjects
     self.QueuedSignals = {}

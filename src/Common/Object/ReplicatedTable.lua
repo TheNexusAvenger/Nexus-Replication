@@ -7,7 +7,7 @@ Does not work well ReplicatedContainer objects.
 
 local NexusReplication = require(script.Parent.Parent.Parent)
 
-local NexusEventCreator = NexusReplication:GetResource("NexusInstance.Event.NexusEventCreator")
+local NexusEvent = NexusReplication:GetResource("NexusInstance.Event.NexusEvent")
 
 local ReplicatedTable = NexusReplication:GetResource("Common.Object.ReplicatedContainer"):Extend()
 ReplicatedTable:SetClassName("ReplicatedTable")
@@ -27,9 +27,9 @@ function ReplicatedTable:__new()
     self:AddToSerialization("Table")
 
     --Create the events.
-    self.ItemAdded = NexusEventCreator:CreateEvent()
-    self.ItemRemoved = NexusEventCreator:CreateEvent()
-    self.ItemChanged = NexusEventCreator:CreateEvent()
+    self.ItemAdded = NexusEvent.new()
+    self.ItemRemoved = NexusEvent.new()
+    self.ItemChanged = NexusEvent.new()
 
     --Connect the replication.
     if not NexusReplication:IsServer() then

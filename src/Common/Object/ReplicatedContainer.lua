@@ -7,7 +7,7 @@ Base class for an object that is replicated.
 local NexusReplication = require(script.Parent.Parent.Parent)
 
 local NexusInstance = NexusReplication:GetResource("NexusInstance.NexusInstance")
-local NexusEventCreator = NexusReplication:GetResource("NexusInstance.Event.NexusEventCreator")
+local NexusEvent = NexusReplication:GetResource("NexusInstance.Event.NexusEvent")
 local ObjectReplication = NexusReplication:GetObjectReplicator()
 
 local ReplicatedContainer = NexusInstance:Extend()
@@ -133,8 +133,8 @@ function ReplicatedContainer:__new()
     end)
 
     --Create the events.
-    self.ChildAdded = NexusEventCreator:CreateEvent()
-    self.ChildRemoved = NexusEventCreator:CreateEvent()
+    self.ChildAdded = NexusEvent.new()
+    self.ChildRemoved = NexusEvent.new()
 
     --Connect destroying the object.
     if not NexusReplication:IsServer() then

@@ -9,7 +9,7 @@ local RunService = game:GetService("RunService")
 
 local NexusProject = require(script:WaitForChild("NexusProject"))
 local NexusReplication = NexusProject.new(script)
-NexusReplication.SingletonInstanceLoaded = NexusReplication:GetResource("NexusInstance.Event.NexusEventCreator"):CreateEvent()
+NexusReplication.SingletonInstanceLoaded = NexusReplication:GetResource("NexusInstance.Event.NexusEvent").new()
 NexusReplication.LoadingSingletonInstances = {}
 NexusReplication.SingletonInstances = {}
 NexusReplication.ReplicationLoadStarted = false
