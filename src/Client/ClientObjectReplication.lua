@@ -66,49 +66,6 @@ function ClientObjectReplication:__new()
             table.insert(self.QueuedSignals[Id],{...})
         end
     end)
-
-    --Get the server time.
-    self:UpdateServerTime()
-
-    --Set up a loop update the server time until the time has stabilized.
-    --Sometimes the server time is off when a player joins.
-    local ServerTimeOffsets = {self.ServerTimeOffset}
-    local CurrentIndex = 2
-    for _ = 1,SERVER_TIME_SAMPLES - 1 do
-        table.insert(ServerTimeOffsets,math.huge)
-    end
-    coroutine.wrap(function()
-        while true do
-            --Update the server time.
-            wait(SERVER_TIME_SYNC_DELAY)
-            self:UpdateServerTime()
-            ServerTimeOffsets[CurrentIndex] = self.ServerTimeOffset
-            CurrentIndex = (CurrentIndex % SERVER_TIME_SAMPLES) + 1
-
-            --Break the loop if all the samples are "close" (stable).
-            local ValuesClose = true
-            for i = 2,SERVER_TIME_SAMPLES do
-                if math.abs(ServerTimeOffsets[1] - ServerTimeOffsets[i]) > SERVER_TIME_THRESHOLD then
-                    ValuesClose = false
-                    break
-                end
-            end
-            if ValuesClose then
-                break
-            end
-        end
-    end)()
-end
-
---[[
-Updates the server time.
---]]
-function ClientObjectReplication:UpdateServerTime()
-    local StartTime = tick()
-    local ServerTime = GetServerTime:InvokeServer()
-    local EndTime = tick()
-    local AverageClientTime = StartTime + ((EndTime - StartTime)/2)
-    self.ServerTimeOffset = ServerTime - AverageClientTime
 end
 
 --[[
@@ -173,14 +130,6 @@ this will yield indefinetly.
 function ClientObjectReplication:GetGlobalContainer()
     self:YieldForInitialLoad()
     return self:GetObject(0)
-end
-
---[[
-Returns the current server time.
-May not be completely accurate.
---]]
-function ClientObjectReplication:GetServerTime()
-    return tick() + self.ServerTimeOffset
 end
 
 

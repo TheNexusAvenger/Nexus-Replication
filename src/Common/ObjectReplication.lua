@@ -12,6 +12,8 @@ local TYPE_TO_PATH = {
 
 
 
+local Workspace = game:GetService("Workspace")
+
 local NexusReplication = require(script.Parent.Parent)
 
 local ObjectReplication = NexusReplication:GetResource("NexusInstance.NexusInstance"):Extend()
@@ -134,7 +136,7 @@ end
 Returns the current server time.
 --]]
 function ObjectReplication:GetServerTime()
-    return tick()
+    return Workspace:GetServerTimeNow()
 end
 
 
