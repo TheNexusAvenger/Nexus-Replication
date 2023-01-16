@@ -15,8 +15,9 @@ local TYPE_TO_PATH = {
 local Workspace = game:GetService("Workspace")
 
 local NexusReplication = require(script.Parent.Parent)
+local NexusInstance = NexusReplication:GetResource("NexusInstance.NexusInstance")
 
-local ObjectReplication = NexusReplication:GetResource("NexusInstance.NexusInstance"):Extend()
+local ObjectReplication = NexusInstance:Extend()
 ObjectReplication:SetClassName("ObjectReplication")
 
 
@@ -25,7 +26,7 @@ ObjectReplication:SetClassName("ObjectReplication")
 Creates the replicator.
 --]]
 function ObjectReplication:__new()
-    self:InitializeSuper()
+    NexusInstance.__new(self)
 
     self.CurrentId = 1
     self.IdIncrementer = 1

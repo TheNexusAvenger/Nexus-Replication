@@ -9,8 +9,9 @@ local NexusReplication = require(script.Parent.Parent)
 local ObjectCreated = NexusReplication:GetResource("NexusReplicationEvents.ObjectCreated")
 local SendSignal = NexusReplication:GetResource("NexusReplicationEvents.SendSignal")
 local GetObjects = NexusReplication:GetResource("NexusReplicationEvents.GetObjects")
+local ObjectReplication = NexusReplication:GetResource("Common.ObjectReplication")
 
-local ServerObjectReplication = NexusReplication:GetResource("Common.ObjectReplication"):Extend()
+local ServerObjectReplication = ObjectReplication:Extend()
 ServerObjectReplication:SetClassName("ServerObjectReplication")
 
 
@@ -19,7 +20,7 @@ ServerObjectReplication:SetClassName("ServerObjectReplication")
 Creates the object replicator.
 --]]
 function ServerObjectReplication:__new()
-    self:InitializeSuper()
+    ObjectReplication.__new(self)
 
     --Set up fetching all the objects.
     function GetObjects.OnServerInvoke()
@@ -40,7 +41,7 @@ Creates an object of a given type.
 Yields if the constructor doesn't exist.
 --]]
 function ServerObjectReplication:CreateObject(Type,Id)
-    local Object = self.super:CreateObject(Type,Id)
+    local Object = ObjectReplication.CreateObject(self, Type, Id)
     ObjectCreated:FireAllClients({
         Type = Type,
         Id = Object.Id,

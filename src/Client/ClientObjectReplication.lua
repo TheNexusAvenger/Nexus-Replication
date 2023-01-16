@@ -4,21 +4,15 @@ TheNexusAvenger
 Replicates objects on the client.
 --]]
 
-local SERVER_TIME_SYNC_DELAY = 3
-local SERVER_TIME_SAMPLES = 5
-local SERVER_TIME_THRESHOLD = 0.1
-
-
-
 local NexusReplication = require(script.Parent.Parent)
 
 local ObjectCreated = NexusReplication:GetResource("NexusReplicationEvents.ObjectCreated")
 local SendSignal = NexusReplication:GetResource("NexusReplicationEvents.SendSignal")
 local GetObjects = NexusReplication:GetResource("NexusReplicationEvents.GetObjects")
-local GetServerTime = NexusReplication:GetResource("NexusReplicationEvents.GetServerTime")
 local NexusEvent = NexusReplication:GetResource("NexusInstance.Event.NexusEvent")
+local ObjectReplication = NexusReplication:GetResource("Common.ObjectReplication")
 
-local ClientObjectReplication = NexusReplication:GetResource("Common.ObjectReplication"):Extend()
+local ClientObjectReplication = ObjectReplication:Extend()
 ClientObjectReplication:SetClassName("ClientObjectReplication")
 
 
@@ -27,7 +21,7 @@ ClientObjectReplication:SetClassName("ClientObjectReplication")
 Creates the object replicator.
 --]]
 function ClientObjectReplication:__new()
-    self:InitializeSuper()
+    ObjectReplication.__new(self)
 
     --Set the id and incrementer for client-only objects.
     self.CurrentId = -1

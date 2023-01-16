@@ -21,8 +21,9 @@ extra steps are required.
 ```lua
 --ModuleScript: ReplicatedStorage.DemoRound
 local NexusReplication = require(game:GetService("ReplicatedStorage"):WaitForChild("NexusReplication"))
+local ReplicatedContainer = NexusReplication:GetResource("Common.Object.ReplicatedContainer")
 
-local DemoRound = NexusReplication:GetResource("Common.Object.ReplicatedContainer"):Extend()
+local DemoRound = ReplicatedContainer:Extend()
 DemoRound:SetClassName("DemoRound")
 NexusReplication:RegisterType("DemoRound",DemoRound)
 
@@ -30,7 +31,7 @@ NexusReplication:RegisterType("DemoRound",DemoRound)
 Creates the round.
 --]]
 function DemoRound:__new()
-    self:InitializeSuper()
+    ReplicatedContainer.__new(self)
     self.Name = "DemoRound"
 
     --Create the state.

@@ -7,8 +7,9 @@ Manages a timer state.
 local NexusReplication = require(script.Parent.Parent)
 
 local ObjectReplication = NexusReplication:GetObjectReplicator()
+local ReplicatedContainer = NexusReplication:GetResource("Common.Object.ReplicatedContainer")
 
-local Timer = NexusReplication:GetResource("Common.Object.ReplicatedContainer"):Extend()
+local Timer = ReplicatedContainer:Extend()
 Timer:SetClassName("Timer")
 NexusReplication:RegisterType("Timer",Timer)
 
@@ -18,7 +19,7 @@ NexusReplication:RegisterType("Timer",Timer)
 Creates the timer.
 --]]
 function Timer:__new()
-    self:InitializeSuper()
+    ReplicatedContainer.__new(self)
     self.Name = "Timer"
 
     --Set up the state.

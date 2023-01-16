@@ -8,8 +8,9 @@ Does not work well ReplicatedContainer objects.
 local NexusReplication = require(script.Parent.Parent.Parent)
 
 local NexusEvent = NexusReplication:GetResource("NexusInstance.Event.NexusEvent")
+local ReplicatedContainer = NexusReplication:GetResource("Common.Object.ReplicatedContainer")
 
-local ReplicatedTable = NexusReplication:GetResource("Common.Object.ReplicatedContainer"):Extend()
+local ReplicatedTable = ReplicatedContainer:Extend()
 ReplicatedTable:SetClassName("ReplicatedTable")
 NexusReplication:RegisterType("ReplicatedTable",ReplicatedTable)
 
@@ -19,7 +20,7 @@ NexusReplication:RegisterType("ReplicatedTable",ReplicatedTable)
 Creates the replicated table.
 --]]
 function ReplicatedTable:__new()
-    self:InitializeSuper()
+    ReplicatedContainer.__new(self)
     self.Name = "ReplicatedTable"
 
     --Set up the state.
@@ -146,7 +147,7 @@ end
 Disposes of the object.
 --]]
 function ReplicatedTable:Dispose()
-    self.super:Dispose()
+    ReplicatedContainer.Dispose(self)
 
     --Clear the table.
     self.Table = {}

@@ -105,7 +105,7 @@ ReplicatedContainer.DecodeIds = DecodeIds
 Creates the container.
 --]]
 function ReplicatedContainer:__new()
-    self:InitializeSuper()
+    NexusInstance.__new(self)
 
     --Create the properties.
     self.SerializedProperties = {}
@@ -122,13 +122,13 @@ function ReplicatedContainer:__new()
     self:AddPropertyFinalizer("Parent",function(_,Parent)
         --Invoke the child being removed.
         if self.LastParent then
-            self.LastParent:UnregisterChild(self.object)
+            self.LastParent:UnregisterChild(self)
         end
         self.LastParent = Parent
 
         --Invoke the child being added.
         if self.Parent then
-            self.Parent:RegisterChild(self.object)
+            self.Parent:RegisterChild(self)
         end
     end)
 
@@ -327,7 +327,7 @@ function ReplicatedContainer:Destroy()
     ObjectReplication:DisposeObject(self.Id)
 
     --Clear the object.
-    self.object:Dispose()
+    self:Dispose()
 
     --Disconnect the events.
     --Done last to ensure Parent change events are invoked.
