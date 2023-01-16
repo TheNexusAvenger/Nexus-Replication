@@ -3,24 +3,35 @@ TheNexusAvenger
 
 Replicates objects on the client.
 --]]
+--!strict
 
-local NexusReplication = require(script.Parent.Parent)
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local ObjectCreated = NexusReplication:GetResource("NexusReplicationEvents.ObjectCreated")
-local SendSignal = NexusReplication:GetResource("NexusReplicationEvents.SendSignal")
-local GetObjects = NexusReplication:GetResource("NexusReplicationEvents.GetObjects")
-local NexusEvent = NexusReplication:GetResource("NexusInstance.Event.NexusEvent")
-local ObjectReplication = NexusReplication:GetResource("Common.ObjectReplication")
+local Types = require(script.Parent.Parent:WaitForChild("Types"))
+local NexusEvent = require(script.Parent.Parent:WaitForChild("NexusInstance"):WaitForChild("Event"):WaitForChild("NexusEvent"))
+local ObjectReplication = require(script.Parent.Parent:WaitForChild("Common"):WaitForChild("ObjectReplication"))
+
+local NexusReplicationEvents = ReplicatedStorage:WaitForChild("NexusReplicationEvents")
+local ObjectCreated = NexusReplicationEvents:WaitForChild("ObjectCreated")
+local SendSignal = NexusReplicationEvents:WaitForChild("SendSignal")
+local GetObjects = NexusReplicationEvents:WaitForChild("GetObjects")
 
 local ClientObjectReplication = ObjectReplication:Extend()
 ClientObjectReplication:SetClassName("ClientObjectReplication")
+
+export type ClientObjectReplication = {
+    new: () -> (ClientObjectReplication),
+    Extend: (self: ClientObjectReplication) -> (ClientObjectReplication),
+
+    YieldForInitialLoad: (self: ClientObjectReplication) -> (),
+} & Types.ObjectReplication
 
 
 
 --[[
 Creates the object replicator.
 --]]
-function ClientObjectReplication:__new()
+function ClientObjectReplication:__new(): ()
     ObjectReplication.__new(self)
 
     --Set the id and incrementer for client-only objects.
@@ -49,7 +60,7 @@ function ClientObjectReplication:__new()
     end)
 
     --Connect listening to events.
-    SendSignal.OnClientEvent:Connect(function(Id,...)
+    SendSignal.OnClientEvent:Connect(function(Id, ...)
         local Object = self.ObjectRegistry[Id] or self.DisposeObjectRegistry[Id]
         if Object then
             Object:OnSignal(...)
@@ -67,18 +78,18 @@ Loads the current objects from the server.
 Done seprately from the constructor due to a
 cyclic dependency.
 --]]
-function ClientObjectReplication:LoadServerObjects()
+function ClientObjectReplication:LoadServerObjects(): ()
     --Get the ids of the objects.
     --This is done before creating objects from ObjectCreated due to a race condition where it is invoked first.
     local InitialObjects = GetObjects:InvokeServer()
     local InitialIds = {}
-    for _,ObjectData in pairs(InitialObjects) do
+    for _,ObjectData in InitialObjects do
         InitialIds[ObjectData.Id] = true
     end
     self.InitialIds = InitialIds
 
     --Load to the objects.
-    for _,ObjectData in pairs(InitialObjects) do
+    for _, ObjectData in InitialObjects do
         self.InitialObjectsLoading = self.InitialObjectsLoading + 1
         coroutine.wrap(function()
             self:LoadObject(ObjectData)
@@ -91,7 +102,7 @@ end
 --[[
 Loads an object from serialization data.
 --]]
-function ClientObjectReplication:LoadObject(ObjectData)
+function ClientObjectReplication:LoadObject(ObjectData: any): Types.ReplicatedContainer
     --Create the object.
     local Object = self:GetClass(ObjectData.Type).FromSerializedData(ObjectData.Object,ObjectData.Id)
 
@@ -110,7 +121,7 @@ end
 --[[
 Yields for the initial objects to load.
 --]]
-function ClientObjectReplication:YieldForInitialLoad()
+function ClientObjectReplication:YieldForInitialLoad(): ()
     while self.InitialObjectsLoading > 0 do
         self.ObjectLoaded:Wait()
     end
@@ -121,11 +132,11 @@ Returns the global replicated container.
 If GetGlobalContainer is not called on the server,
 this will yield indefinetly.
 --]]
-function ClientObjectReplication:GetGlobalContainer()
+function ClientObjectReplication:GetGlobalContainer(): Types.ReplicatedContainer
     self:YieldForInitialLoad()
     return self:GetObject(0)
 end
 
 
 
-return ClientObjectReplication
+return (ClientObjectReplication :: any) :: ClientObjectReplication

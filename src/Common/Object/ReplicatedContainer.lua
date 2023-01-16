@@ -3,23 +3,27 @@ TheNexusAvenger
 
 Base class for an object that is replicated.
 --]]
+--!strict
 
 local NexusReplication = require(script.Parent.Parent.Parent)
 
-local NexusInstance = NexusReplication:GetResource("NexusInstance.NexusInstance")
-local NexusEvent = NexusReplication:GetResource("NexusInstance.Event.NexusEvent")
+local Types = require(script.Parent.Parent.Parent:WaitForChild("Types"))
+local NexusInstance = require(script.Parent.Parent.Parent:WaitForChild("NexusInstance"):WaitForChild("NexusInstance"))
+local NexusEvent = require(script.Parent.Parent.Parent:WaitForChild("NexusInstance"):WaitForChild("Event"):WaitForChild("NexusEvent"))
 local ObjectReplication = NexusReplication:GetObjectReplicator()
 
 local ReplicatedContainer = NexusInstance:Extend()
 ReplicatedContainer:SetClassName("ReplicatedContainer")
-NexusReplication:RegisterType("ReplicatedContainer",ReplicatedContainer)
+NexusReplication:RegisterType("ReplicatedContainer", ReplicatedContainer)
+
+export type ReplicatedContainer = Types.ReplicatedContainer
 
 
 
 --[[
 Encodes a table's ids for serialization.
 --]]
-local function EncodeIds(Table,CheckedValues)
+local function EncodeIds(Table: any, CheckedValues: any): any
     CheckedValues = CheckedValues or {}
 
     --Return if the table is not a table.
@@ -33,7 +37,7 @@ local function EncodeIds(Table,CheckedValues)
     --Return if the item is a replicated container.
     if Table.Id and Table.IsA and Table:IsA("ReplicatedContainer") then
         if ObjectReplication.ObjectRegistry[Table.Id] then
-            return {__KeyToDecode=Table.Id}
+            return {__KeyToDecode = Table.Id}
         end
         return nil
     end
@@ -43,27 +47,27 @@ local function EncodeIds(Table,CheckedValues)
     local KeysToDecode = {}
     local HasKeysToDecode = false
     table.insert(CheckedValues,KeysToDecode)
-    for Key,Value in pairs(Table) do
+    for Key, Value in Table do
         if type(Value) == "table" and Value.Id and Value.IsA and Value:IsA("ReplicatedContainer") then
             if ObjectReplication.ObjectRegistry[Value.Id] then
                 NewTable[Key] = Value.Id
-                table.insert(KeysToDecode,Key)
+                table.insert(KeysToDecode, Key)
                 HasKeysToDecode = true
             end
         else
-            NewTable[Key] = EncodeIds(Value,CheckedValues)
+            NewTable[Key] = EncodeIds(Value, CheckedValues)
         end
     end
 
     --Return the table.
-    return HasKeysToDecode and {__KeysToDecode = KeysToDecode,Data = NewTable} or NewTable
+    return HasKeysToDecode and {__KeysToDecode = KeysToDecode, Data = NewTable} or NewTable
 end
 ReplicatedContainer.EncodeIds = EncodeIds
 
 --[[
 Encodes a table's ids for deserialization.
 --]]
-local function DecodeIds(Table)
+local function DecodeIds(Table: any): any
     --Return if the table is not a table.
     if type(Table) ~= "table" then
         return Table
@@ -80,16 +84,16 @@ local function DecodeIds(Table)
         NewTable = NewTable.Data
     end
     local Keys = {}
-    for Key,_ in pairs(NewTable) do
+    for Key, _ in NewTable do
         table.insert(Keys,Key)
     end
 
     --Decode the keys.
-    for _,Key in pairs(Keys) do
+    for _,Key in Keys do
         NewTable[Key] = DecodeIds(NewTable[Key])
     end
     if Table.__KeysToDecode then
-        for _,Key in pairs(Table.__KeysToDecode) do
+        for _,Key in Table.__KeysToDecode do
             NewTable[Key] = ObjectReplication:GetObject(NewTable[Key])
         end
     end
@@ -104,7 +108,7 @@ ReplicatedContainer.DecodeIds = DecodeIds
 --[[
 Creates the container.
 --]]
-function ReplicatedContainer:__new()
+function ReplicatedContainer:__new(): ()
     NexusInstance.__new(self)
 
     --Create the properties.
@@ -119,7 +123,7 @@ function ReplicatedContainer:__new()
     self:AddToSerialization("Name")
 
     --Connect parent changes.
-    self:AddPropertyFinalizer("Parent",function(_,Parent)
+    self:AddPropertyFinalizer("Parent", function(_, Parent: ReplicatedContainer)
         --Invoke the child being removed.
         if self.LastParent then
             self.LastParent:UnregisterChild(self)
@@ -138,7 +142,7 @@ function ReplicatedContainer:__new()
 
     --Connect destroying the object.
     if not NexusReplication:IsServer() then
-        self:ListenToSignal("Destroy",function()
+        self:ListenToSignal("Destroy", function()
             self:Destroy()
         end)
     end
@@ -147,14 +151,14 @@ end
 --[[
 Adds a FromSerializeData method to the class.
 --]]
-function ReplicatedContainer:AddFromSerializeData(Type)
-    function self.FromSerializedData(SerializationData,Id)
+function ReplicatedContainer:AddFromSerializeData(Type: string): ()
+    function self.FromSerializedData(SerializationData: any, Id: number): ReplicatedContainer
         --Create the object.
-        local Object = ObjectReplication:CreateObject(Type,Id)
+        local Object = ObjectReplication:CreateObject(Type, Id)
 
         --Deserialize the properties.
         local Properties = DecodeIds(SerializationData)
-        for _,PropertyName in pairs(Object.SerializedProperties) do
+        for _, PropertyName in Object.SerializedProperties do
             Object[PropertyName] = Properties[PropertyName]
         end
 
@@ -167,10 +171,10 @@ ReplicatedContainer:AddFromSerializeData("ReplicatedContainer")
 --[[
 Serializes the object.
 --]]
-function ReplicatedContainer:Serialize()
+function ReplicatedContainer:Serialize(): any
     --Serialize the properties.
     local Properties = {}
-    for _,PropertyName in pairs(self.SerializedProperties) do
+    for _, PropertyName in self.SerializedProperties do
         Properties[PropertyName] = self[PropertyName]
     end
 
@@ -181,17 +185,17 @@ end
 --[[
 Adds a property to serialize.
 --]]
-function ReplicatedContainer:AddToSerialization(PropertyName)
+function ReplicatedContainer:AddToSerialization(PropertyName: string): ()
     --Store the property to serialize.
     table.insert(self.SerializedProperties,PropertyName)
 
     --Replicate changes from the server to the client.
     if NexusReplication:IsServer() then
-        self:AddPropertyFinalizer(PropertyName,function(_,NewValue)
+        self:AddPropertyFinalizer(PropertyName, function(_, NewValue: any)
             self:SendSignal("Changed_"..PropertyName,EncodeIds(NewValue))
         end)
     else
-        self:ListenToSignal("Changed_"..PropertyName,function(NewValue)
+        self:ListenToSignal("Changed_"..PropertyName, function(NewValue: any)
             self[PropertyName] = DecodeIds(NewValue)
         end)
     end
@@ -200,27 +204,27 @@ end
 --[[
 Sends a signal to the clients.
 --]]
-function ReplicatedContainer:SendSignal(Name,...)
-    ObjectReplication:SendSignal(self,Name,...)
+function ReplicatedContainer:SendSignal(Name: string, ...: any): ()
+    ObjectReplication:SendSignal(self, Name, ...)
 end
 
 --[[
 Registers a signal listener.
 --]]
-function ReplicatedContainer:ListenToSignal(Name,Handler)
+function ReplicatedContainer:ListenToSignal(Name: string, Handler: (...any) -> ()): ()
     if not self.SignalListeners[Name] then
         self.SignalListeners[Name] = {}
     end
-    table.insert(self.SignalListeners[Name],Handler)
+    table.insert(self.SignalListeners[Name], Handler)
 end
 
 --[[
 Invoked when a signal is invoked.
 --]]
-function ReplicatedContainer:OnSignal(Name,...)
+function ReplicatedContainer:OnSignal(Name: string, ...: any): ()
     local Handlers = self.SignalListeners[Name]
     if Handlers then
-        for _,Handler in pairs(Handlers) do
+        for _,Handler in Handlers do
             Handler(...)
         end
     end
@@ -229,9 +233,9 @@ end
 --[[
 Registers a child being added.
 --]]
-function ReplicatedContainer:RegisterChild(Child)
+function ReplicatedContainer:RegisterChild(Child: ReplicatedContainer): ()
     --Return if the child exists.
-    for _,ExistingChild in pairs(self.Children) do
+    for _, ExistingChild in self.Children do
         if ExistingChild == Child then
             return
         end
@@ -245,10 +249,10 @@ end
 --[[
 Registers a child being removed.
 --]]
-function ReplicatedContainer:UnregisterChild(Child)
+function ReplicatedContainer:UnregisterChild(Child: ReplicatedContainer): ()
     --Get the child index and return if it doesn't exist.
     local Index
-    for i,ExistingChild in pairs(self.Children) do
+    for i, ExistingChild in self.Children do
         if ExistingChild == Child then
             Index = i
             break
@@ -259,7 +263,7 @@ function ReplicatedContainer:UnregisterChild(Child)
     end
 
     --Remove the child.
-    table.remove(self.Children,Index)
+    table.remove(self.Children, Index)
     self.ChildRemoved:Fire(Child)
 end
 
@@ -267,23 +271,24 @@ end
 Returns the first child matching a
 property value.
 --]]
-function ReplicatedContainer:FindFirstChildBy(PropertyName,PropertyValue)
-    for _,Child in pairs(self.Children) do
+function ReplicatedContainer:FindFirstChildBy(PropertyName: string, PropertyValue: any): ReplicatedContainer?
+    for _, Child in self.Children do
         if Child[PropertyName] == PropertyValue then
             return Child
         end
     end
+    return nil
 end
 
 --[[
 Waits for a child to exist that matches
 the property.
 --]]
-function ReplicatedContainer:WaitForChildBy(PropertyName,PropertyValue)
-    local Result = self:FindFirstChildBy(PropertyName,PropertyValue)
+function ReplicatedContainer:WaitForChildBy(PropertyName: string, PropertyValue: any): ReplicatedContainer
+    local Result = self:FindFirstChildBy(PropertyName, PropertyValue)
     while not Result do
-        Result = self:FindFirstChildBy(PropertyName,PropertyValue)
-        wait()
+        Result = self:FindFirstChildBy(PropertyName, PropertyValue)
+        task.wait()
     end
     return Result
 end
@@ -291,10 +296,10 @@ end
 --[[
 Returns the children of the object.
 --]]
-function ReplicatedContainer:GetChildren()
+function ReplicatedContainer:GetChildren(): {ReplicatedContainer}
     local Children = {}
-    for _,Child in pairs(self.Children) do
-        table.insert(Children,Child)
+    for _, Child in self.Children do
+        table.insert(Children, Child)
     end
     return Children
 end
@@ -302,7 +307,7 @@ end
 --[[
 Disposes of the object.
 --]]
-function ReplicatedContainer:Dispose()
+function ReplicatedContainer:Dispose(): ()
     --Unparent the object.
     self.Parent = nil
 
@@ -311,7 +316,7 @@ function ReplicatedContainer:Dispose()
     self.ChildRemoved:Disconnect()
 
     --Destroy the children.
-    for _,Child in pairs(self:GetChildren()) do
+    for _, Child in self:GetChildren() do
         Child:Destroy()
     end
 end
@@ -343,4 +348,4 @@ end
 
 
 
-return ReplicatedContainer
+return (ReplicatedContainer :: any) :: ReplicatedContainer

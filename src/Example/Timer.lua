@@ -3,22 +3,35 @@ TheNexusAvenger
 
 Manages a timer state.
 --]]
+--!strict
 
+local Types = require(script.Parent.Parent:WaitForChild("Types"))
 local NexusReplication = require(script.Parent.Parent)
-
 local ObjectReplication = NexusReplication:GetObjectReplicator()
-local ReplicatedContainer = NexusReplication:GetResource("Common.Object.ReplicatedContainer")
+local ReplicatedContainer = require(script.Parent.Parent:WaitForChild("Common"):WaitForChild("Object"):WaitForChild("ReplicatedContainer"))
 
 local Timer = ReplicatedContainer:Extend()
 Timer:SetClassName("Timer")
-NexusReplication:RegisterType("Timer",Timer)
+NexusReplication:RegisterType("Timer", Timer)
+
+export type Timer = {
+    new: () -> (Timer),
+    Extend: (self: Timer) -> (Timer),
+
+    State: string,
+    SetDuration: (self: Timer, Duration: number) -> (),
+    Start: (self: Timer) -> (),
+    Stop: (self: Timer) -> (),
+    Complete: (self: Timer) -> (),
+    GetRemainingTime: (self: Timer) -> (number),
+} & Types.ReplicatedContainer
 
 
 
 --[[
 Creates the timer.
 --]]
-function Timer:__new()
+function Timer:__new(): ()
     ReplicatedContainer.__new(self)
     self.Name = "Timer"
 
@@ -34,7 +47,7 @@ end
 --[[
 Sets the timer duration.
 --]]
-function Timer:SetDuration(Duration)
+function Timer:SetDuration(Duration: number): ()
     self.RemainingTimeFromStart = Duration
     if self.State == "COMPLETE" and Duration > 0 then
         self.State = "STOPPED"
@@ -44,7 +57,7 @@ end
 --[[
 Starts the timer.
 --]]
-function Timer:Start()
+function Timer:Start(): ()
     if self.State ~= "STOPPED" then return end
 
     --Start the timer.
@@ -54,7 +67,7 @@ function Timer:Start()
 
     --Wait for the timer to finish.
     if NexusReplication:IsServer() then
-        delay(RemainingTime,function()
+        task.delay(RemainingTime, function()
             if self.State == "ACTIVE" and self.StartTime == StartTime and self.RemainingTimeFromStart == RemainingTime then
                 self.StartTime = ObjectReplication:GetServerTime()
                 self.RemainingTimeFromStart = 0
@@ -67,7 +80,7 @@ end
 --[[
 Stops the timer.
 --]]
-function Timer:Stop()
+function Timer:Stop(): ()
     if self.State ~= "ACTIVE" then return end
     self.State = "STOPPED"
     self.RemainingTimeFromStart = math.max(0,self.RemainingTimeFromStart - (ObjectReplication:GetServerTime() - self.StartTime))
@@ -76,7 +89,7 @@ end
 --[[
 Completes the timer.
 --]]
-function Timer:Complete()
+function Timer:Complete(): ()
     if self.State == "COMPLETE" then return end
     self.State = "COMPLETE"
     self.RemainingTimeFromStart = 0
@@ -85,7 +98,7 @@ end
 --[[
 Returns the remaining time of the timer.
 --]]
-function Timer:GetRemainingTime()
+function Timer:GetRemainingTime(): number
     if self.State == "ACTIVE" then
         return math.max(0,self.RemainingTimeFromStart - (ObjectReplication:GetServerTime() - self.StartTime))
     else
@@ -95,4 +108,4 @@ end
 
 
 
-return Timer
+return (Timer :: any) :: Timer

@@ -3,29 +3,38 @@ TheNexusAvenger
 
 Replicates objects on the server.
 --]]
+--!strict
 
-local NexusReplication = require(script.Parent.Parent)
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local ObjectCreated = NexusReplication:GetResource("NexusReplicationEvents.ObjectCreated")
-local SendSignal = NexusReplication:GetResource("NexusReplicationEvents.SendSignal")
-local GetObjects = NexusReplication:GetResource("NexusReplicationEvents.GetObjects")
-local ObjectReplication = NexusReplication:GetResource("Common.ObjectReplication")
+local Types = require(script.Parent.Parent:WaitForChild("Types"))
+local ObjectReplication = require(script.Parent.Parent:WaitForChild("Common"):WaitForChild("ObjectReplication"))
+
+local NexusReplicationEvents = ReplicatedStorage:WaitForChild("NexusReplicationEvents")
+local ObjectCreated = NexusReplicationEvents:WaitForChild("ObjectCreated")
+local SendSignal = NexusReplicationEvents:WaitForChild("SendSignal")
+local GetObjects = NexusReplicationEvents:WaitForChild("GetObjects")
 
 local ServerObjectReplication = ObjectReplication:Extend()
 ServerObjectReplication:SetClassName("ServerObjectReplication")
+
+export type ServerObjectReplication = {
+    new: () -> (ServerObjectReplication),
+    Extend: (self: ServerObjectReplication) -> (ServerObjectReplication),
+} & Types.ObjectReplication
 
 
 
 --[[
 Creates the object replicator.
 --]]
-function ServerObjectReplication:__new()
+function ServerObjectReplication:__new(): ()
     ObjectReplication.__new(self)
 
     --Set up fetching all the objects.
     function GetObjects.OnServerInvoke()
         local Objects = {}
-        for _,Object in pairs(self.ObjectRegistry) do
+        for _,Object in self.ObjectRegistry do
             table.insert(Objects,{
                 Type = Object.Type,
                 Id = Object.Id,
@@ -40,7 +49,7 @@ end
 Creates an object of a given type.
 Yields if the constructor doesn't exist.
 --]]
-function ServerObjectReplication:CreateObject(Type,Id)
+function ServerObjectReplication:CreateObject(Type: string, Id: number?): Types.ReplicatedContainer
     local Object = ObjectReplication.CreateObject(self, Type, Id)
     ObjectCreated:FireAllClients({
         Type = Type,
@@ -53,16 +62,16 @@ end
 --[[
 Sends a signal for an object.
 --]]
-function ServerObjectReplication:SendSignal(Object,Name,...)
-    SendSignal:FireAllClients(Object.Id,Name,...)
+function ServerObjectReplication:SendSignal(Object: Types.ReplicatedContainer, Name: string, ...: any): ()
+    SendSignal:FireAllClients(Object.Id, Name, ...)
 end
 
 --[[
 Returns the global replicated container.
 --]]
-function ServerObjectReplication:GetGlobalContainer()
+function ServerObjectReplication:GetGlobalContainer(): Types.ReplicatedContainer
     --Create the container if it doesn't exist.
-    if not self.ObjectRegistry[0] and not self.DisposeObjectRegistry[0] then
+    if not (self :: any).ObjectRegistry[0] and not (self :: any).DisposeObjectRegistry[0] then
         local Object = self:CreateObject("ReplicatedContainer",0)
         Object.Name = "GlobalReplicatedContainer"
     end
@@ -73,4 +82,4 @@ end
 
 
 
-return ServerObjectReplication
+return (ServerObjectReplication :: any) :: ServerObjectReplication

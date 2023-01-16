@@ -3,10 +3,12 @@ TheNexusAvenger
 
 Initializes Nexus Replication.
 --]]
+--!strict
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
+local Types = require(script:WaitForChild("Types"))
 local NexusProject = require(script:WaitForChild("NexusProject"))
 local NexusReplication = NexusProject.new(script)
 NexusReplication.SingletonInstanceLoaded = NexusReplication:GetResource("NexusInstance.Event.NexusEvent").new()
@@ -34,29 +36,15 @@ if RunService:IsServer() and not ReplicatedStorage:FindFirstChild("NexusReplicat
     local GetObjects = Instance.new("RemoteFunction")
     GetObjects.Name = "GetObjects"
     GetObjects.Parent = NexusReplicationEvents
-
-    local GetServerTime = Instance.new("RemoteFunction")
-    GetServerTime.Name = "GetServerTime"
-    GetServerTime.Parent = NexusReplicationEvents
-
-    function GetServerTime.OnServerInvoke()
-        return tick()
-    end
 else
     NexusReplicationEvents = ReplicatedStorage:WaitForChild("NexusReplicationEvents")
 end
-NexusReplication:SetResource("NexusReplicationEvents",NexusReplicationEvents)
-NexusReplication:SetResource("NexusReplicationEvents.ObjectCreated",NexusReplicationEvents:WaitForChild("ObjectCreated"))
-NexusReplication:SetResource("NexusReplicationEvents.SendSignal",NexusReplicationEvents:WaitForChild("SendSignal"))
-NexusReplication:SetResource("NexusReplicationEvents.GetObjects",NexusReplicationEvents:WaitForChild("GetObjects"))
-NexusReplication:SetResource("NexusReplicationEvents.GetServerTime",NexusReplicationEvents:WaitForChild("GetServerTime"))
-
 
 
 --[[
 Returns if the system is on the server.
 --]]
-function NexusReplication:IsServer()
+function NexusReplication:IsServer(): boolean
     return RunService:IsServer()
 end
 
@@ -65,7 +53,7 @@ Returns a static instance of a class.
 Intended for objects that can only have
 1 instance.
 --]]
-function NexusReplication:GetInstance(Path)
+function NexusReplication:GetInstance(Path: string): any
     --Wait for the instance to load if it is loading.
     while NexusReplication.LoadingSingletonInstances[Path] do
         NexusReplication.SingletonInstanceLoaded:Wait()
@@ -87,7 +75,7 @@ end
 Clears the static instances. Only
 intended for use at the end of tests.
 --]]
-function NexusReplication:ClearInstances()
+function NexusReplication:ClearInstances(): ()
     for _,Ins in pairs(NexusReplication.SingletonInstances) do
         if Ins.Destroy then
             Ins:Destroy()
@@ -100,7 +88,7 @@ end
 --[[
 Returns the static object replicator.
 --]]
-function NexusReplication:GetObjectReplicator()
+function NexusReplication:GetObjectReplicator(): Types.ObjectReplication
     if self:IsServer() then
         return self:GetInstance("Server.ServerObjectReplication")
     else
@@ -116,29 +104,29 @@ end
 --[[
 Registers a class for a type.
 --]]
-function NexusReplication:RegisterType(Type,Class)
-    self:GetObjectReplicator():RegisterType(Type,Class)
+function NexusReplication:RegisterType(Type: string, Class: Types.ReplicatedContainer): ()
+    self:GetObjectReplicator():RegisterType(Type, Class)
 end
 
 --[[
 Returns the object for an id.
 Yields if the id doesn't exist.
 --]]
-function NexusReplication:GetObject(Id)
+function NexusReplication:GetObject(Id: number): Types.ReplicatedContainer
     return self:GetObjectReplicator():GetObject(Id)
 end
 
 --[[
 Returns the global replicated container.
 --]]
-function NexusReplication:GetGlobalContainer()
+function NexusReplication:GetGlobalContainer(): Types.ReplicatedContainer
     return self:GetObjectReplicator():GetGlobalContainer()
 end
 
 --[[
 Returns the current server time.
 --]]
-function NexusReplication:GetServerTime()
+function NexusReplication:GetServerTime(): number
     return self:GetObjectReplicator():GetServerTime()
 end
 
@@ -146,8 +134,8 @@ end
 Creates an object of a given type.
 Yields if the constructor doesn't exist.
 --]]
-function NexusReplication:CreateObject(Type,Id)
-    return self:GetObjectReplicator():CreateObject(Type,Id)
+function NexusReplication:CreateObject(Type: string, Id: number?): ()
+    return self:GetObjectReplicator():CreateObject(Type, Id)
 end
 
 

@@ -3,6 +3,7 @@ TheNexusAvenger
 
 Base for replicating objects.
 --]]
+--!strict
 
 local TYPE_TO_PATH = {
     ReplicatedContainer = "Common.Object.ReplicatedContainer",
@@ -15,17 +16,20 @@ local TYPE_TO_PATH = {
 local Workspace = game:GetService("Workspace")
 
 local NexusReplication = require(script.Parent.Parent)
-local NexusInstance = NexusReplication:GetResource("NexusInstance.NexusInstance")
+local Types = require(script.Parent.Parent:WaitForChild("Types"))
+local NexusInstance = require(script.Parent.Parent:WaitForChild("NexusInstance"):WaitForChild("NexusInstance"))
 
 local ObjectReplication = NexusInstance:Extend()
 ObjectReplication:SetClassName("ObjectReplication")
+
+export type ObjectReplication = Types.ObjectReplication
 
 
 
 --[[
 Creates the replicator.
 --]]
-function ObjectReplication:__new()
+function ObjectReplication:__new(): ()
     NexusInstance.__new(self)
 
     self.CurrentId = 1
@@ -39,7 +43,7 @@ end
 --[[
 Registers a class for a type.
 --]]
-function ObjectReplication:RegisterType(Type,Class)
+function ObjectReplication:RegisterType(Type: string, Class: Types.ReplicatedContainer): ()
     self.TypeClasses[Type] = Class
     if Class.AddFromSerializeData then
         Class:AddFromSerializeData(Type)
@@ -49,7 +53,7 @@ end
 --[[
 Returns the class for the given type.
 --]]
-function ObjectReplication:GetClass(Type)
+function ObjectReplication:GetClass(Type: string): Types.ReplicatedContainer
     --Load the type.
     if not self.TypeClasses[Type] then
         local Path = TYPE_TO_PATH[Type]
@@ -71,7 +75,7 @@ end
 Creates an object of a given type.
 Yields if the constructor doesn't exist.
 --]]
-function ObjectReplication:CreateObject(Type,Id)
+function ObjectReplication:CreateObject(Type: string, Id: number?): Types.ReplicatedContainer
     --Create the object.
     --Must be done before picking an id in case the constructor creates objects.
     local Class = self:GetClass(Type)
@@ -96,7 +100,7 @@ end
 Returns the object for an id.
 Yields if the id doesn't exist.
 --]]
-function ObjectReplication:GetObject(Id)
+function ObjectReplication:GetObject(Id: number): Types.ReplicatedContainer
     --Wait for the id to exist.
     while not self.ObjectRegistry[Id] and not self.DisposeObjectRegistry[Id] do
         wait()
@@ -109,7 +113,7 @@ end
 --[[
 Disposes of a given object id.
 --]]
-function ObjectReplication:DisposeObject(Id)
+function ObjectReplication:DisposeObject(Id: number): ()
     if not Id or not self.ObjectRegistry[Id] then return end
 
     --Move the object to a weak table.
@@ -122,24 +126,24 @@ end
 --[[
 Sends a signal for an object.
 --]]
-function ObjectReplication:SendSignal(Object,Name,...)
+function ObjectReplication:SendSignal(Object: Types.ReplicatedContainer, Name: string, ...: any): ()
     error("Not implemented in the given context.")
 end
 
 --[[
 Returns the global replicated container.
 --]]
-function ObjectReplication:GetGlobalContainer()
+function ObjectReplication:GetGlobalContainer(): Types.ReplicatedContainer
     error("Not implemented in the given context.")
 end
 
 --[[
 Returns the current server time.
 --]]
-function ObjectReplication:GetServerTime()
+function ObjectReplication:GetServerTime(): number
     return Workspace:GetServerTimeNow()
 end
 
 
 
-return ObjectReplication
+return (ObjectReplication :: any) :: ObjectReplication
