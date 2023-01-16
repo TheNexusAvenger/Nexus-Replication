@@ -9,9 +9,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Types = require(script:WaitForChild("Types"))
-local NexusProject = require(script:WaitForChild("NexusProject"))
-local NexusReplication = NexusProject.new(script)
-NexusReplication.SingletonInstanceLoaded = NexusReplication:GetResource("NexusInstance.Event.NexusEvent").new()
+local NexusReplication = {}
+NexusReplication.SingletonInstanceLoaded = require(script:WaitForChild("NexusInstance"):WaitForChild("Event"):WaitForChild("NexusEvent")).new()
 NexusReplication.LoadingSingletonInstances = {}
 NexusReplication.SingletonInstances = {}
 NexusReplication.ReplicationLoadStarted = false
@@ -69,6 +68,18 @@ function NexusReplication:GetInstance(Path: string): any
 
     --Return the singleton instance.
     return NexusReplication.SingletonInstances[Path]
+end
+
+--[[
+Returns a resource for a path.
+Legacy from Nexus Project.
+--]]
+function NexusReplication:GetResource(Path: string): any
+    local ModuleScript = script
+    for _, PathPart in string.split(Path, ".") do
+        ModuleScript = (ModuleScript :: any)[PathPart]
+    end
+    return require(ModuleScript :: ModuleScript) :: any
 end
 
 --[[

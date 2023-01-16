@@ -4,12 +4,6 @@
         "$path": "src",
         "NexusInstance": {
             "$path": "module/Nexus-Instance/src"
-        },
-        "NexusProject": {
-            "$path": "module/Nexus-Project/src",
-            "NexusInstance": {
-                "$path": "module/Nexus-Project/module/Nexus-Instance/src"
-            }
         }
     }
 }

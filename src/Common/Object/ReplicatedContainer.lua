@@ -36,7 +36,7 @@ local function EncodeIds(Table: any, CheckedValues: any): any
 
     --Return if the item is a replicated container.
     if Table.Id and Table.IsA and Table:IsA("ReplicatedContainer") then
-        if ObjectReplication.ObjectRegistry[Table.Id] then
+        if (ObjectReplication.ObjectRegistry :: any)[Table.Id] then
             return {__KeyToDecode = Table.Id}
         end
         return nil
@@ -49,7 +49,7 @@ local function EncodeIds(Table: any, CheckedValues: any): any
     table.insert(CheckedValues,KeysToDecode)
     for Key, Value in Table do
         if type(Value) == "table" and Value.Id and Value.IsA and Value:IsA("ReplicatedContainer") then
-            if ObjectReplication.ObjectRegistry[Value.Id] then
+            if (ObjectReplication.ObjectRegistry :: any)[Value.Id] then
                 NewTable[Key] = Value.Id
                 table.insert(KeysToDecode, Key)
                 HasKeysToDecode = true
@@ -159,7 +159,7 @@ function ReplicatedContainer:AddFromSerializeData(Type: string): ()
         --Deserialize the properties.
         local Properties = DecodeIds(SerializationData)
         for _, PropertyName in Object.SerializedProperties do
-            Object[PropertyName] = Properties[PropertyName]
+            (Object :: any)[PropertyName] = Properties[PropertyName]
         end
 
         --Return the object.
