@@ -34,7 +34,7 @@ export type ReplicatedContainer = {
     AddFromSerializeData: (self: ReplicatedContainer, Type: string) -> (),
 
     Children: {ReplicatedContainer},
-    Parent: {ReplicatedContainer},
+    Parent: ReplicatedContainer?,
     Name: string,
     ChildAdded: NexusEvent.NexusEvent<ReplicatedContainer>,
     ChildRemoved: NexusEvent.NexusEvent<ReplicatedContainer>,

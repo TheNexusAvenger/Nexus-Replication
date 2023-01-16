@@ -147,5 +147,5 @@ in Nexus Battles.
 Both issues and pull requests are accepted for this project.
 
 ## License
-Nexus Button is available under the terms of the MIT 
+Nexus Replication is available under the terms of the MIT 
 Licence. See [LICENSE](LICENSE) for details.

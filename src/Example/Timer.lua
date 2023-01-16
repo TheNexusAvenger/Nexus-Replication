@@ -83,7 +83,7 @@ Stops the timer.
 function Timer:Stop(): ()
     if self.State ~= "ACTIVE" then return end
     self.State = "STOPPED"
-    self.RemainingTimeFromStart = math.max(0,self.RemainingTimeFromStart - (ObjectReplication:GetServerTime() - self.StartTime))
+    self.RemainingTimeFromStart = math.max(0, self.RemainingTimeFromStart - (ObjectReplication:GetServerTime() - self.StartTime))
 end
 
 --[[
