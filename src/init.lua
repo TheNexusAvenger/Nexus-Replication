@@ -145,7 +145,7 @@ end
 Creates an object of a given type.
 Yields if the constructor doesn't exist.
 --]]
-function NexusReplication:CreateObject(Type: string, Id: number?): ()
+function NexusReplication:CreateObject(Type: string, Id: number?): any
     return self:GetObjectReplicator():CreateObject(Type, Id)
 end
 
