@@ -39,6 +39,7 @@ function ClientObjectReplication:__new(): ()
     self.IdIncrementer = -1
 
     --Store the loading state.
+    self.LoadingStarted = NexusEvent.new()
     self.ObjectLoaded = NexusEvent.new()
     self.InitialObjectsLoading = 0
     self.InitialIds = nil --Set in LoadServerObjects
@@ -91,12 +92,14 @@ function ClientObjectReplication:LoadServerObjects(): ()
     --Load to the objects.
     for _, ObjectData in InitialObjects do
         self.InitialObjectsLoading = self.InitialObjectsLoading + 1
-        coroutine.wrap(function()
+        task.spawn(function()
             self:LoadObject(ObjectData)
             self.InitialObjectsLoading = self.InitialObjectsLoading - 1
             self.ObjectLoaded:Fire()
-        end)()
+        end)
     end
+    self.LoadingStarted:Fire()
+    self.LoadingStarted = nil
 end
 
 --[[
@@ -108,7 +111,7 @@ function ClientObjectReplication:LoadObject(ObjectData: any): Types.ReplicatedCo
 
     --Run the queued signals.
     if self.QueuedSignals[ObjectData.Id] then
-        for _,SignalData in pairs(self.QueuedSignals[ObjectData.Id]) do
+        for _,SignalData in self.QueuedSignals[ObjectData.Id] do
             Object:OnSignal(unpack(SignalData))
         end
         self.QueuedSignals[ObjectData.Id] = nil
@@ -122,6 +125,9 @@ end
 Yields for the initial objects to load.
 --]]
 function ClientObjectReplication:YieldForInitialLoad(): ()
+    if self.LoadingStarted then
+        self.LoadingStarted:Wait()
+    end
     while self.InitialObjectsLoading > 0 do
         self.ObjectLoaded:Wait()
     end
