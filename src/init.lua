@@ -149,6 +149,13 @@ function NexusReplication:CreateObject(Type: string, Id: number?): any
     return self:GetObjectReplicator():CreateObject(Type, Id)
 end
 
+--[[
+Loads the Nexus Admin debug commands.
+--]]
+function NexusReplication:LoadNexusAdminDebugCommands(): ()
+    require(script:WaitForChild("NexusAdmin"):WaitForChild("DumpObjectsCommand"))()
+end
+
 
 
 return NexusReplication

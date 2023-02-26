@@ -33,6 +33,7 @@ export type ReplicatedContainer = {
     FromSerializedData: (SerializationData: any, Id: number) -> (ReplicatedContainer),
     AddFromSerializeData: (self: ReplicatedContainer, Type: string) -> (),
 
+    Id: number,
     Children: {ReplicatedContainer},
     Parent: ReplicatedContainer?,
     Name: string,
