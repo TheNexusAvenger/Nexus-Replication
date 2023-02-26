@@ -155,10 +155,10 @@ return function()
             expect(TestReplicatedContainer1:FindFirstChildBy("UnknownProperty", "Test4")).to.equal(nil)
 
             --Test WaitForChildBy.
-            coroutine.wrap(function()
+            task.spawn(function()
                 task.wait()
                 TestReplicatedContainer3.Name = "Test4"
-            end)()
+            end)
             expect(TestReplicatedContainer1:WaitForChildBy("Name", "Test2")).to.equal(TestReplicatedContainer2)
             expect(TestReplicatedContainer1:WaitForChildBy("Name", "Test4")).to.equal(TestReplicatedContainer3)
         end)

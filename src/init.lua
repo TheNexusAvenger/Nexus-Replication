@@ -87,7 +87,7 @@ Clears the static instances. Only
 intended for use at the end of tests.
 --]]
 function NexusReplication:ClearInstances(): ()
-    for _,Ins in pairs(NexusReplication.SingletonInstances) do
+    for _, Ins in NexusReplication.SingletonInstances :: {any} do
         if Ins.Destroy then
             Ins:Destroy()
         end

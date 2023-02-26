@@ -69,7 +69,7 @@ function DemoRound:Start()
     if self.State ~= "NOT_STARTED" then return end
     self.State = "ACTIVE"
     self.Timer:Start()
-    for _,Player in pairs(self.Players:GetAll()) do
+    for _,Player in self.Players:GetAll() do
         print("Round player: "..Player.DisplayName)
     end
 end

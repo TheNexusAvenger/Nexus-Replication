@@ -155,7 +155,7 @@ end
 Returns if the table contains the given value.
 --]]
 function ReplicatedTable:Contains<T>(Value: T): boolean
-    for _, OtherValue in pairs(self.Table) do
+    for _, OtherValue in self.Table do
         if Value == OtherValue then
             return true
         end
