@@ -44,10 +44,10 @@ end
 Registers a class for a type.
 --]]
 function ObjectReplication:RegisterType(Type: string, Class: Types.ReplicatedContainer): ()
-    self.TypeClasses[Type] = Class
     if Class.AddFromSerializeData then
         Class:AddFromSerializeData(Type)
     end
+    self.TypeClasses[Type] = Class
 end
 
 --[[
