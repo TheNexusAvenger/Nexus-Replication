@@ -6,6 +6,7 @@ Must be called on the client and server.
 --]]
 --!strict
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 local RunService = game:GetService("RunService")
@@ -95,7 +96,7 @@ local function BuildObjectDump(): {{[string]: any}}
     local function AddIgnore(Line)
         table.insert(Lines,{Text=Line,Type="Ignore"})
     end
-    AddPrint("OBJECT DUMP")
+    AddPrint("OBJECT DUMP ("..tostring(Players.LocalPlayer and Players.LocalPlayer.Name or "Server")..")")
     AddPrint("   Object Registry (kept until manually destroyed):")
     DumpObjectTable(ObjectRegistry, AddPrint, WarnPrint, AddIgnore)
 
@@ -129,29 +130,37 @@ local function LoadNexusAdminCommand(NexusAdminModule: any): ()
     if RunService:IsClient() then
         local ScrollingTextWindow = require(ReplicatedStorage:WaitForChild("NexusAdminClient"):WaitForChild("IncludedCommands"):WaitForChild("Resources"):WaitForChild("ScrollingTextWindow")) :: any
         local GetObjectDump = NexusAdmin.EventContainer:WaitForChild("NexusReplicationGetObjectDump")
-        CommandRun = function()
+        CommandRun = function(_: any, _: any, TargetPlayer: {Player}?)
              --Display the text window.
             local Window = ScrollingTextWindow.new()
-            Window.Title = "Object Dump"
+            Window.Title = "Object Dump - "..(TargetPlayer and TargetPlayer[1].Name or "Server")
             Window.GetTextLines = function(_, SearchTerm: string, ForceRefresh: boolean)
                 local Lines = {}
-                for _, Line in GetObjectDump:InvokeServer() :: {{[string]: any}} do
+                for _, Line in GetObjectDump:InvokeServer(TargetPlayer and TargetPlayer[1]) :: {{[string]: any}} do
                     table.insert(Lines, {Text = Line.Text, TextColor3 = ((Line.Type == "Warn" and Color3.new(1, 0.6, 0)) or (Line.Type == "Ignore" and Color3.new(0.7, 0.7, 0.7)) or Color3.new(1, 1, 1))})
                 end
                 return Lines
             end
             Window:Show()
         end
+
+        GetObjectDump.OnClientInvoke = function()
+            return BuildObjectDump()
+        end
     else
         local GetObjectDump = Instance.new("RemoteFunction")
         GetObjectDump.Name = "NexusReplicationGetObjectDump"
         GetObjectDump.Parent = NexusAdmin.EventContainer
 
-        GetObjectDump.OnServerInvoke = function(Player)
+        GetObjectDump.OnServerInvoke = function(Player: Player, TargetPlayer: Player?)
             if not NexusAdmin.Authorization:IsPlayerAuthorized(Player, 0) then
                 return {Text = "Unauthorized", Type = "Warn"}
             end
-            return BuildObjectDump()
+            if TargetPlayer then
+                return GetObjectDump:InvokeClient(TargetPlayer)
+            else
+                return BuildObjectDump()
+            end
         end
     end
 
@@ -160,8 +169,16 @@ local function LoadNexusAdminCommand(NexusAdminModule: any): ()
         Keyword = "dumpobjects",
         Prefix = NexusAdmin.Configuration.CommandPrefix,
         Category = "NexusReplicationDebug",
-        Description = "Dumps the replicated objects of Nexus Round System in the server output.",
+        Description = "Dumps the replicated objects of Nexus Replication.",
         AdminLevel = 0,
+        Arguments = {
+            {
+                Type = "nexusAdminPlayers",
+                Name = "Player",
+                Description = "Optional players to view the object dump of. The server is shown if no player is specified.",
+                Optional = true,
+            },
+        },
         Run = CommandRun,
     } :: any)
 end
