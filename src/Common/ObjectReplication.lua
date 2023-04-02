@@ -87,6 +87,7 @@ function ObjectReplication:CreateObject(Type: string, Id: number?): Types.Replic
             self.CurrentId = self.CurrentId + self.IdIncrementer
         end
         Id = self.CurrentId
+        self.CurrentId += self.IdIncrementer
     end
 
     --Store the object.
