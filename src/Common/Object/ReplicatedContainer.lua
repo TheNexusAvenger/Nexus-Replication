@@ -1,22 +1,28 @@
---[[
-TheNexusAvenger
-
-Base class for an object that is replicated.
---]]
+--Base class for an object that is replicated.
 --!strict
 
 local NexusReplication = require(script.Parent.Parent.Parent)
 
-local Types = require(script.Parent.Parent.Parent:WaitForChild("Types"))
-local NexusInstance = require(script.Parent.Parent.Parent:WaitForChild("NexusInstance"):WaitForChild("NexusInstance"))
-local NexusEvent = require(script.Parent.Parent.Parent:WaitForChild("NexusInstance"):WaitForChild("Event"):WaitForChild("NexusEvent"))
+local NexusInstance = require(script.Parent.Parent.Parent:WaitForChild("NexusInstance"))
 local ObjectReplication = NexusReplication:GetObjectReplicator()
 
-local ReplicatedContainer = NexusInstance:Extend()
-ReplicatedContainer:SetClassName("ReplicatedContainer")
+local ReplicatedContainer = {}
+ReplicatedContainer.__index = ReplicatedContainer
 NexusReplication:RegisterType("ReplicatedContainer", ReplicatedContainer)
 
-export type ReplicatedContainer = Types.ReplicatedContainer
+export type ReplicatedContainer = {
+    Type: string,
+    Id: number,
+    Name: string,
+    SerializedProperties: {string},
+    SignalListeners: {[string]: {(...any) -> ()}},
+    Children: {NexusInstanceReplicatedContainer},
+    Parent: NexusInstanceReplicatedContainer?,
+    LastParent: NexusInstanceReplicatedContainer?,
+    ChildAdded: NexusInstance.TypedEvent<NexusInstanceReplicatedContainer>,
+    ChildRemoved: NexusInstance.TypedEvent<NexusInstanceReplicatedContainer>,
+} & typeof(setmetatable({}, ReplicatedContainer))
+export type NexusInstanceReplicatedContainer = NexusInstance.NexusInstance<ReplicatedContainer>
 
 
 
@@ -35,7 +41,7 @@ local function EncodeIds(Table: any, CheckedValues: any): any
     CheckedValues[Table] = true
 
     --Return if the item is a replicated container.
-    if Table.Id and Table.IsA and Table:IsA("ReplicatedContainer") then
+    if Table.Id and Table.SerializedProperties then
         if (ObjectReplication.ObjectRegistry :: any)[Table.Id] then
             return {__KeyToDecode = Table.Id}
         end
@@ -48,7 +54,7 @@ local function EncodeIds(Table: any, CheckedValues: any): any
     local HasKeysToDecode = false
     table.insert(CheckedValues,KeysToDecode)
     for Key, Value in Table do
-        if type(Value) == "table" and Value.Id and Value.IsA and Value:IsA("ReplicatedContainer") then
+        if type(Value) == "table" and Value.Id and Value.SerializedProperties then
             if (ObjectReplication.ObjectRegistry :: any)[Value.Id] then
                 NewTable[Key] = Value.Id
                 table.insert(KeysToDecode, Key)
@@ -108,22 +114,20 @@ ReplicatedContainer.DecodeIds = DecodeIds
 --[[
 Creates the container.
 --]]
-function ReplicatedContainer:__new(): ()
-    NexusInstance.__new(self)
-
+function ReplicatedContainer.__new(self: NexusInstanceReplicatedContainer): ()
     --Create the properties.
-    self.SerializedProperties = {}
-    self.SignalListeners = {}
-    self.Children = {}
+    self.Name = "ReplicatedContainer"
+    self.SerializedProperties = {} :: {string}
+    self.SignalListeners = {} :: {[string]: {(...any) -> ()}}
+    self.Children = {} :: {NexusInstanceReplicatedContainer}
     self.Parent = nil
     self.LastParent = nil
-    self.Name = self.ClassName
     self:AddToSerialization("Children")
     self:AddToSerialization("Parent")
     self:AddToSerialization("Name")
 
     --Connect parent changes.
-    self:AddPropertyFinalizer("Parent", function(_, Parent: ReplicatedContainer)
+    self:OnPropertyChanged("Parent", function(Parent: NexusInstanceReplicatedContainer)
         --Invoke the child being removed.
         if self.LastParent then
             self.LastParent:UnregisterChild(self)
@@ -137,8 +141,8 @@ function ReplicatedContainer:__new(): ()
     end)
 
     --Create the events.
-    self.ChildAdded = NexusEvent.new()
-    self.ChildRemoved = NexusEvent.new()
+    self.ChildAdded = self:CreateEvent() :: NexusInstance.TypedEvent<NexusInstanceReplicatedContainer>
+    self.ChildRemoved = self:CreateEvent() :: NexusInstance.TypedEvent<NexusInstanceReplicatedContainer>
 
     --Connect destroying the object.
     if not NexusReplication:IsServer() then
@@ -151,7 +155,7 @@ end
 --[[
 Adds a FromSerializeData method to the class.
 --]]
-function ReplicatedContainer:AddFromSerializeData(Type: string): ()
+function ReplicatedContainer.AddFromSerializeData(self: any, Type: string): ()
     function self.FromSerializedData(SerializationData: any, Id: number): ReplicatedContainer
         --Create the object.
         local Object = ObjectReplication:CreateObject(Type, Id)
@@ -171,11 +175,11 @@ ReplicatedContainer:AddFromSerializeData("ReplicatedContainer")
 --[[
 Serializes the object.
 --]]
-function ReplicatedContainer:Serialize(): any
+function ReplicatedContainer.Serialize(self: NexusInstanceReplicatedContainer): any
     --Serialize the properties.
     local Properties = {}
     for _, PropertyName in self.SerializedProperties do
-        Properties[PropertyName] = self[PropertyName]
+        Properties[PropertyName] = (self :: any)[PropertyName]
     end
 
     --Return the properties.
@@ -185,18 +189,18 @@ end
 --[[
 Adds a property to serialize.
 --]]
-function ReplicatedContainer:AddToSerialization(PropertyName: string): ()
+function ReplicatedContainer.AddToSerialization(self: NexusInstanceReplicatedContainer, PropertyName: string): ()
     --Store the property to serialize.
-    table.insert(self.SerializedProperties,PropertyName)
+    table.insert(self.SerializedProperties, PropertyName)
 
     --Replicate changes from the server to the client.
     if NexusReplication:IsServer() then
-        self:AddPropertyFinalizer(PropertyName, function(_, NewValue: any)
-            self:SendSignal("Changed_"..PropertyName,EncodeIds(NewValue))
+        self:OnPropertyChanged(PropertyName, function(_, NewValue: any)
+            self:SendSignal("Changed_"..PropertyName, EncodeIds(NewValue))
         end)
     else
         self:ListenToSignal("Changed_"..PropertyName, function(NewValue: any)
-            self[PropertyName] = DecodeIds(NewValue)
+            (self :: any)[PropertyName] = DecodeIds(NewValue)
         end)
     end
 end
@@ -204,14 +208,14 @@ end
 --[[
 Sends a signal to the clients.
 --]]
-function ReplicatedContainer:SendSignal(Name: string, ...: any): ()
+function ReplicatedContainer.SendSignal(self: NexusInstanceReplicatedContainer, Name: string, ...: any): ()
     ObjectReplication:SendSignal(self, Name, ...)
 end
 
 --[[
 Registers a signal listener.
 --]]
-function ReplicatedContainer:ListenToSignal(Name: string, Handler: (...any) -> ()): ()
+function ReplicatedContainer.ListenToSignal(self: NexusInstanceReplicatedContainer, Name: string, Handler: (...any) -> ()): ()
     if not self.SignalListeners[Name] then
         self.SignalListeners[Name] = {}
     end
@@ -221,7 +225,7 @@ end
 --[[
 Invoked when a signal is invoked.
 --]]
-function ReplicatedContainer:OnSignal(Name: string, ...: any): ()
+function ReplicatedContainer.OnSignal(self: NexusInstanceReplicatedContainer, Name: string, ...: any): ()
     local Handlers = self.SignalListeners[Name]
     if Handlers then
         for _,Handler in Handlers do
@@ -233,7 +237,7 @@ end
 --[[
 Registers a child being added.
 --]]
-function ReplicatedContainer:RegisterChild(Child: ReplicatedContainer): ()
+function ReplicatedContainer.RegisterChild(self: NexusInstanceReplicatedContainer, Child: NexusInstanceReplicatedContainer): ()
     --Return if the child exists.
     for _, ExistingChild in self.Children do
         if ExistingChild == Child then
@@ -242,14 +246,14 @@ function ReplicatedContainer:RegisterChild(Child: ReplicatedContainer): ()
     end
 
     --Add the child.
-    table.insert(self.Children,Child)
+    table.insert(self.Children, Child)
     self.ChildAdded:Fire(Child)
 end
 
 --[[
 Registers a child being removed.
 --]]
-function ReplicatedContainer:UnregisterChild(Child: ReplicatedContainer): ()
+function ReplicatedContainer.UnregisterChild(self: NexusInstanceReplicatedContainer, Child: NexusInstanceReplicatedContainer): ()
     --Get the child index and return if it doesn't exist.
     local Index
     for i, ExistingChild in self.Children do
@@ -271,10 +275,10 @@ end
 Returns the first child matching a
 property value.
 --]]
-function ReplicatedContainer:FindFirstChildBy(PropertyName: string, PropertyValue: any): ReplicatedContainer?
+function ReplicatedContainer.FindFirstChildBy(self: NexusInstanceReplicatedContainer, PropertyName: string, PropertyValue: any): NexusInstanceReplicatedContainer?
     for _, Child in self.Children do
-        if Child[PropertyName] == PropertyValue then
-            return Child
+        if (Child :: any)[PropertyName] == PropertyValue then
+            return Child :: NexusInstanceReplicatedContainer
         end
     end
     return nil
@@ -284,47 +288,43 @@ end
 Waits for a child to exist that matches
 the property.
 --]]
-function ReplicatedContainer:WaitForChildBy(PropertyName: string, PropertyValue: any): ReplicatedContainer
+function ReplicatedContainer.WaitForChildBy(self: NexusInstanceReplicatedContainer, PropertyName: string, PropertyValue: any): NexusInstanceReplicatedContainer
     local Result = self:FindFirstChildBy(PropertyName, PropertyValue)
     while not Result do
         Result = self:FindFirstChildBy(PropertyName, PropertyValue)
         task.wait()
     end
-    return Result
+    return Result :: NexusInstanceReplicatedContainer
 end
 
 --[[
 Returns the children of the object.
 --]]
-function ReplicatedContainer:GetChildren(): {ReplicatedContainer}
+function ReplicatedContainer.GetChildren(self: NexusInstanceReplicatedContainer): {NexusInstanceReplicatedContainer}
     local Children = {}
     for _, Child in self.Children do
         table.insert(Children, Child)
     end
-    return Children
+    return Children :: {NexusInstanceReplicatedContainer}
 end
 
 --[[
 Disposes of the object.
 --]]
-function ReplicatedContainer:Dispose(): ()
+function ReplicatedContainer.Dispose(self: NexusInstanceReplicatedContainer): ()
     --Unparent the object.
     self.Parent = nil
 
-    --Disconnect the events.
-    self.ChildAdded:Disconnect()
-    self.ChildRemoved:Disconnect()
-
     --Destroy the children.
     for _, Child in self:GetChildren() do
-        Child:Destroy()
+        (Child :: NexusInstanceReplicatedContainer):Destroy()
     end
 end
 
 --[[
 Destroys the object.
 --]]
-function ReplicatedContainer:Destroy()
+function ReplicatedContainer.Destroy(self: NexusInstanceReplicatedContainer)
     --Unregister the object.
     if NexusReplication:IsServer() then
         self:SendSignal("Destroy")
@@ -333,10 +333,6 @@ function ReplicatedContainer:Destroy()
 
     --Clear the object.
     self:Dispose()
-
-    --Disconnect the events.
-    --Done last to ensure Parent change events are invoked.
-    NexusInstance.Destroy(self)
 end
 
 --[[
@@ -348,4 +344,4 @@ end
 
 
 
-return (ReplicatedContainer :: any) :: ReplicatedContainer
+return NexusInstance.ToInstance(ReplicatedContainer) :: NexusInstance.NexusInstanceClass<typeof(ReplicatedContainer), () -> (ReplicatedContainer)>

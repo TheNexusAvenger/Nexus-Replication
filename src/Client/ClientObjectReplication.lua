@@ -1,46 +1,44 @@
---[[
-TheNexusAvenger
-
-Replicates objects on the client.
---]]
+--Replicates objects on the client.
 --!strict
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Types = require(script.Parent.Parent:WaitForChild("Types"))
-local NexusEvent = require(script.Parent.Parent:WaitForChild("NexusInstance"):WaitForChild("Event"):WaitForChild("NexusEvent"))
 local ObjectReplication = require(script.Parent.Parent:WaitForChild("Common"):WaitForChild("ObjectReplication"))
+local NexusInstance = require(script.Parent.Parent:WaitForChild("NexusInstance"))
 
 local NexusReplicationEvents = ReplicatedStorage:WaitForChild("NexusReplicationEvents")
 local ObjectCreated = NexusReplicationEvents:WaitForChild("ObjectCreated")
 local SendSignal = NexusReplicationEvents:WaitForChild("SendSignal")
 local GetObjects = NexusReplicationEvents:WaitForChild("GetObjects")
 
-local ClientObjectReplication = ObjectReplication:Extend()
-ClientObjectReplication:SetClassName("ClientObjectReplication")
+local ClientObjectReplication = {}
+ClientObjectReplication.__index = ClientObjectReplication
+setmetatable(ClientObjectReplication, ObjectReplication)
 
 export type ClientObjectReplication = {
-    new: () -> (ClientObjectReplication),
-    Extend: (self: ClientObjectReplication) -> (ClientObjectReplication),
-
-    YieldForInitialLoad: (self: ClientObjectReplication) -> (),
-} & Types.ObjectReplication
+    InitialObjectsLoading: number,
+    InitialIds: {[number]: boolean}?,
+    QueuedSignals: {[number]: {any}},
+    LoadingStarted: NexusInstance.TypedEvent<>?,
+    ObjectLoaded: NexusInstance.TypedEvent<>,
+} & typeof(setmetatable({}, ClientObjectReplication)) & ObjectReplication.ObjectReplication
+export type NexusInstanceClientObjectReplication = NexusInstance.NexusInstance<ClientObjectReplication>
 
 
 
 --[[
 Creates the object replicator.
 --]]
-function ClientObjectReplication:__new(): ()
-    ObjectReplication.__new(self)
+function ClientObjectReplication.__new(self: NexusInstanceClientObjectReplication): ()
+    ObjectReplication.__new(self :: any)
 
     --Set the id and incrementer for client-only objects.
     self.CurrentId = -1
     self.IdIncrementer = -1
 
     --Store the loading state.
-    self.LoadingStarted = NexusEvent.new()
-    self.ObjectLoaded = NexusEvent.new()
+    self.LoadingStarted = self:CreateEvent()
+    self.ObjectLoaded = self:CreateEvent()
     self.InitialObjectsLoading = 0
     self.InitialIds = nil --Set in LoadServerObjects
     self.QueuedSignals = {}
@@ -52,7 +50,7 @@ function ClientObjectReplication:__new(): ()
         if not self.InitialIds then
             self:GetPropertyChangedSignal("InitialIds"):Wait()
         end
-        if self.InitialIds[ObjectData.Id] then
+        if (self.InitialIds :: {[number]: boolean})[ObjectData.Id] then
             return
         end
 
@@ -69,7 +67,7 @@ function ClientObjectReplication:__new(): ()
             if not self.QueuedSignals[Id] then
                 self.QueuedSignals[Id] = {}
             end
-            table.insert(self.QueuedSignals[Id],{...})
+            table.insert(self.QueuedSignals[Id], {...})
         end
     end)
 end
@@ -79,7 +77,7 @@ Loads the current objects from the server.
 Done seprately from the constructor due to a
 cyclic dependency.
 --]]
-function ClientObjectReplication:LoadServerObjects(): ()
+function ClientObjectReplication.LoadServerObjects(self: NexusInstanceClientObjectReplication): ()
     --Get the ids of the objects.
     --This is done before creating objects from ObjectCreated due to a race condition where it is invoked first.
     local InitialObjects = GetObjects:InvokeServer()
@@ -98,14 +96,16 @@ function ClientObjectReplication:LoadServerObjects(): ()
             self.ObjectLoaded:Fire()
         end)
     end
-    self.LoadingStarted:Fire()
-    self.LoadingStarted = nil
+    if self.LoadingStarted then
+        self.LoadingStarted:Fire()
+        self.LoadingStarted = nil
+    end
 end
 
 --[[
 Loads an object from serialization data.
 --]]
-function ClientObjectReplication:LoadObject(ObjectData: any): Types.ReplicatedContainer
+function ClientObjectReplication.LoadObject(self: NexusInstanceClientObjectReplication, ObjectData: any): any
     --Create the object.
     local Object = self:GetClass(ObjectData.Type).FromSerializedData(ObjectData.Object,ObjectData.Id)
 
@@ -124,7 +124,7 @@ end
 --[[
 Yields for the initial objects to load.
 --]]
-function ClientObjectReplication:YieldForInitialLoad(): ()
+function ClientObjectReplication.YieldForInitialLoad(self: NexusInstanceClientObjectReplication): ()
     if self.LoadingStarted then
         self.LoadingStarted:Wait()
     end
@@ -138,11 +138,11 @@ Returns the global replicated container.
 If GetGlobalContainer is not called on the server,
 this will yield indefinetly.
 --]]
-function ClientObjectReplication:GetGlobalContainer(): Types.ReplicatedContainer
+function ClientObjectReplication.GetGlobalContainer(self: NexusInstanceClientObjectReplication): any
     self:YieldForInitialLoad()
     return self:GetObject(0)
 end
 
 
 
-return (ClientObjectReplication :: any) :: ClientObjectReplication
+return NexusInstance.ToInstance(ClientObjectReplication) :: NexusInstance.NexusInstanceClass<typeof(ClientObjectReplication), () -> (ClientObjectReplication)>

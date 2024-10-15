@@ -1,8 +1,4 @@
---[[
-TheNexusAvenger
-
-Tests the ReplicatedTable class.
---]]
+--Tests the ReplicatedTable class.
 --!strict
 --$NexusUnitTestExtensions
 

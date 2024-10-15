@@ -1,9 +1,5 @@
---[[
-TheNexusAvenger
-
-Loads a command in Nexus Admin to view the dumped objects.
-Must be called on the client and server.
---]]
+--Loads a command in Nexus Admin to view the dumped objects.
+--Must be called on the client and server.
 --!strict
 
 local Players = game:GetService("Players")
@@ -12,24 +8,29 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local RunService = game:GetService("RunService")
 
 local NexusReplication = require(script.Parent.Parent)
-local Types = require(script.Parent.Parent:WaitForChild("Types"))
 local ObjectReplicator = NexusReplication:GetObjectReplicator()
-local ObjectRegistry = ObjectReplicator.ObjectRegistry :: {[number]: Types.ReplicatedContainer}
-local DisposeObjectRegistry = ObjectReplicator.DisposeObjectRegistry :: {[number]: Types.ReplicatedContainer}
+local ObjectRegistry = ObjectReplicator.ObjectRegistry :: {[number]: StubbedReplicatedContainer}
+local DisposeObjectRegistry = ObjectReplicator.DisposeObjectRegistry :: {[number]: StubbedReplicatedContainer}
 
+export type StubbedReplicatedContainer = {
+    Type: string,
+    Id: number,
+    SerializedProperties: {string},
+    [any]: any,
+}
 
 
 --[[
 Dumps an object's information.
 --]]
-local function DumpObject(Object: Types.ReplicatedContainer, AddPrint: (string) -> (), AddWarning: (string) -> (), AddIgnore: (string) -> ()): ()
+local function DumpObject(Object: StubbedReplicatedContainer, AddPrint: (string) -> (), AddWarning: (string) -> (), AddIgnore: (string) -> ()): ()
     --Output the name.
     AddPrint("     Object "..tostring(Object.Id).." ("..tostring(Object.Type)..")")
 
     --Output the properties.
     for _, PropertyName in Object.SerializedProperties do
         local Value = (Object :: any)[PropertyName]
-        if typeof(Value) == "table" and Value.Id and Value.IsA and Value:IsA("ReplicatedContainer") then
+        if typeof(Value) == "table" and Value.Id and Value.SerializedProperties then
             local Id = Value.Id
             if ObjectRegistry[Id] then
                 AddPrint("         "..tostring(PropertyName).." (ReplicatedContainer): "..tostring(Id))
@@ -42,7 +43,7 @@ local function DumpObject(Object: Types.ReplicatedContainer, AddPrint: (string) 
             if typeof(Value) == "table" then
                 AddPrint("         "..tostring(PropertyName).." (Table):")
                 for Index, SubObject in Value do
-                    if typeof(SubObject) == "table" and SubObject.Id and SubObject.IsA and SubObject:IsA("ReplicatedContainer") then
+                    if typeof(SubObject) == "table" and SubObject.Id and SubObject.SerializedProperties then
                         local Id = SubObject.Id
                         if ObjectRegistry[Id] then
                             AddPrint("           "..tostring(Index).." (ReplicatedContainer): "..tostring(Id))
@@ -65,7 +66,7 @@ end
 --[[
 Dumps a table of objects.
 --]]
-local function DumpObjectTable(Objects: {Types.ReplicatedContainer}, AddPrint: (string) -> (), AddWarning: (string) -> (), AddIgnore: (string) -> ()): ()
+local function DumpObjectTable(Objects: {StubbedReplicatedContainer}, AddPrint: (string) -> (), AddWarning: (string) -> (), AddIgnore: (string) -> ()): ()
     --Sort the objects by id.
     local SortedObjects = {}
     for _, Object in Objects do

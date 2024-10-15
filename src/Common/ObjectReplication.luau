@@ -1,8 +1,4 @@
---[[
-TheNexusAvenger
-
-Base for replicating objects.
---]]
+--Base for replicating objects.
 --!strict
 
 local TYPE_TO_PATH = {
@@ -16,13 +12,25 @@ local TYPE_TO_PATH = {
 local Workspace = game:GetService("Workspace")
 
 local NexusReplication = require(script.Parent.Parent)
-local Types = require(script.Parent.Parent:WaitForChild("Types"))
-local NexusInstance = require(script.Parent.Parent:WaitForChild("NexusInstance"):WaitForChild("NexusInstance"))
+local NexusInstance = require(script.Parent.Parent:WaitForChild("NexusInstance"))
 
-local ObjectReplication = NexusInstance:Extend()
-ObjectReplication:SetClassName("ObjectReplication")
+local ObjectReplication = {}
+ObjectReplication.__index = ObjectReplication
 
-export type ObjectReplication = Types.ObjectReplication
+export type StubbedReplicatedContainer = {
+    Type: string,
+    Id: number,
+    Serialize: (self: StubbedReplicatedContainer) -> (any),
+    [any]: any,
+}
+export type ObjectReplication = {
+    CurrentId: number,
+    IdIncrementer: number,
+    TypeClasses: {[string]: any},
+    ObjectRegistry: {[number]: StubbedReplicatedContainer},
+    DisposeObjectRegistry: {[number]: StubbedReplicatedContainer},
+} & typeof(setmetatable({}, ObjectReplication))
+export type NexusInstanceObjectReplication = NexusInstance.NexusInstance<ObjectReplication>
 
 
 
@@ -30,20 +38,18 @@ export type ObjectReplication = Types.ObjectReplication
 Creates the replicator.
 --]]
 function ObjectReplication:__new(): ()
-    NexusInstance.__new(self)
-
     self.CurrentId = 1
     self.IdIncrementer = 1
     self.TypeClasses = {}
     self.ObjectRegistry = {}
     self.DisposeObjectRegistry = {}
-    setmetatable(self.DisposeObjectRegistry,{__mode="v"})
+    setmetatable(self.DisposeObjectRegistry, {__mode="v"})
 end
 
 --[[
 Registers a class for a type.
 --]]
-function ObjectReplication:RegisterType(Type: string, Class: Types.ReplicatedContainer): ()
+function ObjectReplication.RegisterType(self: NexusInstanceObjectReplication, Type: string, Class: any): ()
     if Class.AddFromSerializeData then
         Class:AddFromSerializeData(Type)
     end
@@ -53,7 +59,7 @@ end
 --[[
 Returns the class for the given type.
 --]]
-function ObjectReplication:GetClass(Type: string): Types.ReplicatedContainer
+function ObjectReplication.GetClass(self: NexusInstanceObjectReplication, Type: string): any
     --Load the type.
     if not self.TypeClasses[Type] then
         local Path = TYPE_TO_PATH[Type]
@@ -64,7 +70,7 @@ function ObjectReplication:GetClass(Type: string): Types.ReplicatedContainer
 
     --Wait for the type to exist.
     while not self.TypeClasses[Type] do
-        wait()
+        task.wait()
     end
 
     --Return the class.
@@ -75,7 +81,7 @@ end
 Creates an object of a given type.
 Yields if the constructor doesn't exist.
 --]]
-function ObjectReplication:CreateObject(Type: string, Id: number?): Types.ReplicatedContainer
+function ObjectReplication.CreateObject(self: NexusInstanceObjectReplication, Type: string, Id: number?): any
     --Create the object.
     --Must be done before picking an id in case the constructor creates objects.
     local Class = self:GetClass(Type)
@@ -93,7 +99,7 @@ function ObjectReplication:CreateObject(Type: string, Id: number?): Types.Replic
     --Store the object.
     Object.Id = Id
     Object.Type = Type
-    self.ObjectRegistry[Id] = Object
+    self.ObjectRegistry[Id :: number] = Object
     return Object
 end
 
@@ -101,10 +107,10 @@ end
 Returns the object for an id.
 Yields if the id doesn't exist.
 --]]
-function ObjectReplication:GetObject(Id: number): Types.ReplicatedContainer
+function ObjectReplication.GetObject(self: NexusInstanceObjectReplication, Id: number): any
     --Wait for the id to exist.
     while not self.ObjectRegistry[Id] and not self.DisposeObjectRegistry[Id] do
-        wait()
+        task.wait()
     end
 
     --Create and store the object.
@@ -114,7 +120,7 @@ end
 --[[
 Disposes of a given object id.
 --]]
-function ObjectReplication:DisposeObject(Id: number): ()
+function ObjectReplication.DisposeObject(self: NexusInstanceObjectReplication, Id: number): ()
     if not Id or not self.ObjectRegistry[Id] then return end
 
     --Move the object to a weak table.
@@ -127,24 +133,24 @@ end
 --[[
 Sends a signal for an object.
 --]]
-function ObjectReplication:SendSignal(Object: Types.ReplicatedContainer, Name: string, ...: any): ()
+function ObjectReplication.SendSignal(self: NexusInstanceObjectReplication, Object: any, Name: string, ...: any): ()
     error("Not implemented in the given context.")
 end
 
 --[[
 Returns the global replicated container.
 --]]
-function ObjectReplication:GetGlobalContainer(): Types.ReplicatedContainer
+function ObjectReplication.GetGlobalContainer(self: NexusInstanceObjectReplication): any
     error("Not implemented in the given context.")
 end
 
 --[[
 Returns the current server time.
 --]]
-function ObjectReplication:GetServerTime(): number
+function ObjectReplication.GetServerTime(self: NexusInstanceObjectReplication): number
     return Workspace:GetServerTimeNow()
 end
 
 
 
-return (ObjectReplication :: any) :: ObjectReplication
+return NexusInstance.ToInstance(ObjectReplication) :: NexusInstance.NexusInstanceClass<typeof(ObjectReplication), () -> (NexusInstanceObjectReplication)>

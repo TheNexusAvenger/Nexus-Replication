@@ -1,8 +1,4 @@
---[[
-TheNexusAvenger
-
-Tests the ReplicatedContainer class.
---]]
+--Tests the ReplicatedContainer class.
 --!strict
 --$NexusUnitTestExtensions
 

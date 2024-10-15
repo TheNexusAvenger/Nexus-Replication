@@ -1,16 +1,13 @@
---[[
-TheNexusAvenger
-
-Initializes Nexus Replication.
---]]
+--Initializes Nexus Replication.
 --!strict
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
-local Types = require(script:WaitForChild("Types"))
+local TypedEvent = require(script:WaitForChild("NexusInstance"):WaitForChild("Event"):WaitForChild("TypedEvent"))
+
 local NexusReplication = {}
-NexusReplication.SingletonInstanceLoaded = require(script:WaitForChild("NexusInstance"):WaitForChild("Event"):WaitForChild("NexusEvent")).new()
+NexusReplication.SingletonInstanceLoaded = TypedEvent.new()
 NexusReplication.LoadingSingletonInstances = {}
 NexusReplication.SingletonInstances = {}
 NexusReplication.ReplicationLoadStarted = false
@@ -99,7 +96,7 @@ end
 --[[
 Returns the static object replicator.
 --]]
-function NexusReplication:GetObjectReplicator(): Types.ObjectReplication
+function NexusReplication:GetObjectReplicator(): any
     if self:IsServer() then
         return self:GetInstance("Server.ServerObjectReplication")
     else
@@ -115,7 +112,7 @@ end
 --[[
 Registers a class for a type.
 --]]
-function NexusReplication:RegisterType(Type: string, Class: Types.ReplicatedContainer): ()
+function NexusReplication:RegisterType(Type: string, Class: any): ()
     self:GetObjectReplicator():RegisterType(Type, Class)
 end
 
@@ -123,14 +120,14 @@ end
 Returns the object for an id.
 Yields if the id doesn't exist.
 --]]
-function NexusReplication:GetObject(Id: number): Types.ReplicatedContainer
+function NexusReplication:GetObject(Id: number): any
     return self:GetObjectReplicator():GetObject(Id)
 end
 
 --[[
 Returns the global replicated container.
 --]]
-function NexusReplication:GetGlobalContainer(): Types.ReplicatedContainer
+function NexusReplication:GetGlobalContainer(): any
     return self:GetObjectReplicator():GetGlobalContainer()
 end
 

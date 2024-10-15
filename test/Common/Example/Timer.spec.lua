@@ -1,8 +1,4 @@
---[[
-TheNexusAvenger
-
-Tests the Timer class.
---]]
+--Tests the Timer class.
 --!strict
 
 local NexusReplicationModule = game:GetService("ReplicatedStorage"):WaitForChild("NexusReplication")

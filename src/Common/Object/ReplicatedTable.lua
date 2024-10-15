@@ -1,45 +1,32 @@
---[[
-TheNexusAvenger
-
-Table that is replicated with additions and deletions.
-Does not work well ReplicatedContainer objects.
---]]
+--Table that is replicated with additions and deletions.
+--Does not work well with ReplicatedContainer objects.
 --!strict
 
 local NexusReplication = require(script.Parent.Parent.Parent)
 
-local Types = require(script.Parent.Parent.Parent:WaitForChild("Types"))
-local NexusEvent = require(script.Parent.Parent.Parent:WaitForChild("NexusInstance"):WaitForChild("Event"):WaitForChild("NexusEvent"))
+local NexusInstance = require(script.Parent.Parent.Parent:WaitForChild("NexusInstance"))
 local ReplicatedContainer = require(script.Parent.Parent.Parent:WaitForChild("Common"):WaitForChild("Object"):WaitForChild("ReplicatedContainer"))
 
-local ReplicatedTable = ReplicatedContainer:Extend()
-ReplicatedTable:SetClassName("ReplicatedTable")
+local ReplicatedTable = {}
+ReplicatedTable.__index = ReplicatedTable
+setmetatable(ReplicatedTable, ReplicatedContainer)
 NexusReplication:RegisterType("ReplicatedTable",ReplicatedTable)
 
 export type ReplicatedTable<T> = {
-    new: () -> (ReplicatedTable<T>),
-    Extend: (self: ReplicatedTable<T>) -> (ReplicatedTable<T>),
-    
-    ItemAdded: NexusEvent.NexusEvent<T>,
-    ItemRemoved: NexusEvent.NexusEvent<T>,
-    ItemChanged: NexusEvent.NexusEvent<T>,
-    Add: <T>(Value: T, Index: any) -> (),
-    RemoveAt: (Index: number) -> (),
-    Remove: <T>(Value: T) -> (),
-    Set: <T>(Index: any, Value: T) -> (),
-    Get: <T>(Index: any) -> (T),
-    GetAll: <T>(ConditionFunction: (T) -> (boolean)?) -> ({T}),
-    Find: <T>(Value: T) -> (any),
-    Contains: <T>(Value: T) -> (boolean),
-} & Types.ReplicatedContainer
+    Table: {[any]: T},
+    ItemAdded: NexusInstance.TypedEvent<T>,
+    ItemRemoved: NexusInstance.TypedEvent<T>,
+    ItemChanged: NexusInstance.TypedEvent<T>,
+} & typeof(setmetatable({}, ReplicatedTable)) & ReplicatedContainer.ReplicatedContainer
+export type NexusInstanceReplicatedTable<T> = NexusInstance.NexusInstance<ReplicatedTable<T>>
 
 
 
 --[[
 Creates the replicated table.
 --]]
-function ReplicatedTable:__new(): ()
-    ReplicatedContainer.__new(self)
+function ReplicatedTable.__new<T>(self: NexusInstanceReplicatedTable<T>): ()
+    ReplicatedContainer.__new(self :: any)
     self.Name = "ReplicatedTable"
 
     --Set up the state.
@@ -47,9 +34,9 @@ function ReplicatedTable:__new(): ()
     self:AddToSerialization("Table")
 
     --Create the events.
-    self.ItemAdded = NexusEvent.new()
-    self.ItemRemoved = NexusEvent.new()
-    self.ItemChanged = NexusEvent.new()
+    self.ItemAdded = self:CreateEvent() :: NexusInstance.TypedEvent<T>
+    self.ItemRemoved = self:CreateEvent() :: NexusInstance.TypedEvent<T>
+    self.ItemChanged = self:CreateEvent() :: NexusInstance.TypedEvent<T>
 
     --Connect the replication.
     if not NexusReplication:IsServer() then
@@ -71,7 +58,7 @@ end
 --[[
 Adds an item to the table.
 --]]
-function ReplicatedTable:Add<T>(Value: T, Index: any): ()
+function ReplicatedTable.Add<T>(self: NexusInstanceReplicatedTable<T>, Value: T, Index: any): ()
     if Index then
         table.insert(self.Table, Index, Value)
     else
@@ -86,7 +73,7 @@ end
 --[[
 Removes an item from the table at the given index.
 --]]
-function ReplicatedTable:RemoveAt(Index: number): ()
+function ReplicatedTable.RemoveAt<T>(self: NexusInstanceReplicatedTable<T>, Index: number): ()
     local Value = self.Table[Index]
     table.remove(self.Table,Index)
     self.ItemRemoved:Fire(Value)
@@ -98,7 +85,7 @@ end
 --[[
 Removes an item from the table.
 --]]
-function ReplicatedTable:Remove<T>(Value: T): ()
+function ReplicatedTable.Remove<T>(self: NexusInstanceReplicatedTable<T>, Value: T): ()
     for i, Object in self.Table do
         if Object == Value then
             self:RemoveAt(i)
@@ -110,7 +97,7 @@ end
 --[[
 Sets the value at a given index.
 --]]
-function ReplicatedTable:Set<T>(Index: any, Value: T): ()
+function ReplicatedTable.Set<T>(self: NexusInstanceReplicatedTable<T>, Index: any, Value: T): ()
     self.Table[Index] = Value
     self.ItemChanged:Fire(Index)
     if NexusReplication:IsServer() then
@@ -121,7 +108,7 @@ end
 --[[
 Returns the value at a given index.
 --]]
-function ReplicatedTable:Get<T>(Index: any): T
+function ReplicatedTable.Get<T>(self: NexusInstanceReplicatedTable<T>, Index: any): T
     return self.Table[Index]
 end
 
@@ -129,7 +116,7 @@ end
 Returns all the values that pass a given function.
 If no function is given, all values are returned.
 --]]
-function ReplicatedTable:GetAll<T>(ConditionFunction: (T) -> (boolean)?): {T}
+function ReplicatedTable.GetAll<T>(self: NexusInstanceReplicatedTable<T>, ConditionFunction: (T) -> (boolean)?): {T}
     local Values = {}
     for _, Value in self.Table do
         if not ConditionFunction or ConditionFunction(Value) then
@@ -142,7 +129,7 @@ end
 --[[
 Returns the index at a given value.
 --]]
-function ReplicatedTable:Find<T>(Value: T): any
+function ReplicatedTable.Find<T>(self: NexusInstanceReplicatedTable<T>, Value: T): any
     for i, OtherValue in self.Table do
         if Value == OtherValue then
             return i
@@ -154,7 +141,7 @@ end
 --[[
 Returns if the table contains the given value.
 --]]
-function ReplicatedTable:Contains<T>(Value: T): boolean
+function ReplicatedTable.Contains<T>(self: NexusInstanceReplicatedTable<T>, Value: T): boolean
     for _, OtherValue in self.Table do
         if Value == OtherValue then
             return true
@@ -166,18 +153,13 @@ end
 --[[
 Disposes of the object.
 --]]
-function ReplicatedTable:Dispose(): ()
-    ReplicatedContainer.Dispose(self)
+function ReplicatedTable.Dispose<T>(self: NexusInstanceReplicatedTable<T>): ()
+    ReplicatedContainer.Dispose(self :: any)
 
     --Clear the table.
     self.Table = {}
-
-    --Disconnect the events.
-    self.ItemAdded:Disconnect()
-    self.ItemRemoved:Disconnect()
-    self.ItemChanged:Disconnect()
 end
 
 
 
-return (ReplicatedTable :: any) :: ReplicatedTable<any>
+return NexusInstance.ToInstance(ReplicatedTable) :: NexusInstance.NexusInstanceClass<typeof(ReplicatedTable), <T>() -> (ReplicatedTable<T>)>
