@@ -1,7 +1,6 @@
 --Base for replicating objects.
 --!strict
 
-local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 
 local NexusInstance = require(script.Parent.Parent:WaitForChild("NexusInstance"))
@@ -185,6 +184,87 @@ function ObjectReplication.ConnectReplication(self: NexusInstanceObjectReplicati
     self:RegisterType("ReplicatedContainer", require(script.Parent:WaitForChild("Object"):WaitForChild("ReplicatedContainer")))
     self:RegisterType("ReplicatedTable", require(script.Parent:WaitForChild("Object"):WaitForChild("ReplicatedTable")))
     self:RegisterType("Timer", require(script.Parent.Parent:WaitForChild("Example"):WaitForChild("Timer")))
+end
+
+--[[
+Encodes a table's ids for serialization.
+--]]
+function ObjectReplication.EncodeIds(self: NexusInstanceObjectReplication, Table: any, CheckedValues: any): any
+    CheckedValues = CheckedValues or {}
+
+    --Return if the table is not a table.
+    if Table == nil then return nil end
+    if CheckedValues[Table] or type(Table) ~= "table" then
+        CheckedValues[Table] = true
+        return Table
+    end
+    CheckedValues[Table] = true
+
+    --Return if the item is a replicated container.
+    if Table.Id then
+        if self.ObjectRegistry[Table.Id] then
+            return {__KeyToDecode = Table.Id}
+        end
+        return nil
+    end
+
+    --Encode the ids of the table.
+    local NewTable = {}
+    local KeysToDecode = {}
+    local HasKeysToDecode = false
+    table.insert(CheckedValues,KeysToDecode)
+    for Key, Value in Table do
+        if type(Value) == "table" and Value.Id then
+            if self.ObjectRegistry[Value.Id] then
+                NewTable[Key] = Value.Id
+                table.insert(KeysToDecode, Key)
+                HasKeysToDecode = true
+            end
+        else
+            NewTable[Key] = self:EncodeIds(Value, CheckedValues)
+        end
+    end
+
+    --Return the table.
+    return HasKeysToDecode and {__KeysToDecode = KeysToDecode, Data = NewTable} or NewTable
+end
+
+--[[
+Encodes a table's ids for deserialization.
+--]]
+function ObjectReplication.DecodeIds(self: NexusInstanceObjectReplication, Table: any): any
+    --Return if the table is not a table.
+    if type(Table) ~= "table" then
+        return Table
+    end
+
+    --Return if the table is an object.
+    if Table.__KeyToDecode then
+        return self:GetObject(Table.__KeyToDecode)
+    end
+
+    --Get the list of keys.
+    local NewTable = Table
+    if NewTable.__KeysToDecode then
+        NewTable = NewTable.Data
+    end
+    local Keys = {}
+    for Key, _ in NewTable do
+        table.insert(Keys,Key)
+    end
+
+    --Decode the keys.
+    for _,Key in Keys do
+        NewTable[Key] = self:DecodeIds(NewTable[Key])
+    end
+    if Table.__KeysToDecode then
+        for _,Key in Table.__KeysToDecode do
+            NewTable[Key] = self:GetObject(NewTable[Key])
+        end
+    end
+
+    --Return the table.
+    return NewTable
 end
 
 --[[

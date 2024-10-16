@@ -1,7 +1,7 @@
 --Base class for an object that is replicated.
 --!strict
 
-local RunService = game:GetService("RunSerivce")
+local RunService = game:GetService("RunService")
 
 local NexusReplication = require(script.Parent.Parent.Parent)
 
@@ -24,91 +24,6 @@ export type ReplicatedContainer = {
     ChildRemoved: NexusInstance.TypedEvent<NexusInstanceReplicatedContainer>,
 } & typeof(setmetatable({}, ReplicatedContainer))
 export type NexusInstanceReplicatedContainer = NexusInstance.NexusInstance<ReplicatedContainer>
-
-
-
---[[
-Encodes a table's ids for serialization.
---]]
-local function EncodeIds(Table: any, CheckedValues: any): any
-    CheckedValues = CheckedValues or {}
-
-    --Return if the table is not a table.
-    if Table == nil then return nil end
-    if CheckedValues[Table] or type(Table) ~= "table" then
-        CheckedValues[Table] = true
-        return Table
-    end
-    CheckedValues[Table] = true
-
-    --Return if the item is a replicated container.
-    if Table.Id and Table.SerializedProperties then
-        if (ObjectReplication.ObjectRegistry :: any)[Table.Id] then
-            return {__KeyToDecode = Table.Id}
-        end
-        return nil
-    end
-
-    --Encode the ids of the table.
-    local NewTable = {}
-    local KeysToDecode = {}
-    local HasKeysToDecode = false
-    table.insert(CheckedValues,KeysToDecode)
-    for Key, Value in Table do
-        if type(Value) == "table" and Value.Id and Value.SerializedProperties then
-            if (ObjectReplication.ObjectRegistry :: any)[Value.Id] then
-                NewTable[Key] = Value.Id
-                table.insert(KeysToDecode, Key)
-                HasKeysToDecode = true
-            end
-        else
-            NewTable[Key] = EncodeIds(Value, CheckedValues)
-        end
-    end
-
-    --Return the table.
-    return HasKeysToDecode and {__KeysToDecode = KeysToDecode, Data = NewTable} or NewTable
-end
-ReplicatedContainer.EncodeIds = EncodeIds
-
---[[
-Encodes a table's ids for deserialization.
---]]
-local function DecodeIds(Table: any): any
-    --Return if the table is not a table.
-    if type(Table) ~= "table" then
-        return Table
-    end
-
-    --Return if the table is an object.
-    if Table.__KeyToDecode then
-        return ObjectReplication:GetObject(Table.__KeyToDecode)
-    end
-
-    --Get the list of keys.
-    local NewTable = Table
-    if NewTable.__KeysToDecode then
-        NewTable = NewTable.Data
-    end
-    local Keys = {}
-    for Key, _ in NewTable do
-        table.insert(Keys,Key)
-    end
-
-    --Decode the keys.
-    for _,Key in Keys do
-        NewTable[Key] = DecodeIds(NewTable[Key])
-    end
-    if Table.__KeysToDecode then
-        for _,Key in Table.__KeysToDecode do
-            NewTable[Key] = ObjectReplication:GetObject(NewTable[Key])
-        end
-    end
-
-    --Return the table.
-    return NewTable
-end
-ReplicatedContainer.DecodeIds = DecodeIds
 
 
 
@@ -162,7 +77,7 @@ function ReplicatedContainer.AddFromSerializeData(self: any, Type: string): ()
         local Object = ObjectReplication:CreateObject(Type, Id)
 
         --Deserialize the properties.
-        local Properties = DecodeIds(SerializationData)
+        local Properties = ObjectReplication:DecodeIds(SerializationData)
         for _, PropertyName in Object.SerializedProperties do
             (Object :: any)[PropertyName] = Properties[PropertyName]
         end
@@ -184,7 +99,7 @@ function ReplicatedContainer.Serialize(self: NexusInstanceReplicatedContainer): 
     end
 
     --Return the properties.
-    return EncodeIds(Properties)
+    return ObjectReplication:EncodeIds(Properties)
 end
 
 --[[
@@ -197,11 +112,11 @@ function ReplicatedContainer.AddToSerialization(self: NexusInstanceReplicatedCon
     --Replicate changes from the server to the client.
     if RunService:IsServer() then
         self:OnPropertyChanged(PropertyName, function(_, NewValue: any)
-            self:SendSignal("Changed_"..PropertyName, EncodeIds(NewValue))
+            self:SendSignal("Changed_"..PropertyName, ObjectReplication:EncodeIds(NewValue))
         end)
     else
         self:ListenToSignal("Changed_"..PropertyName, function(NewValue: any)
-            (self :: any)[PropertyName] = DecodeIds(NewValue)
+            (self :: any)[PropertyName] = ObjectReplication:DecodeIds(NewValue)
         end)
     end
 end

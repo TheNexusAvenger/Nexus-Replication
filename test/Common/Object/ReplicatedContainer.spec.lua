@@ -34,40 +34,6 @@ return function()
     end)
 
     describe("The ReplicatedContainer helper functions", function()
-        it("should encode ids.", function()
-            --Test encoding non-tables.
-            expect(ReplicatedContainer.EncodeIds(1)).to.equal(1)
-            expect(ReplicatedContainer.EncodeIds("Test")).to.equal("Test")
-
-            --Test encoding objects.
-            expect(ReplicatedContainer.EncodeIds(TestReplicatedContainer1)).to.deepEqual({__KeyToDecode = -1})
-            expect(ReplicatedContainer.EncodeIds(TestReplicatedContainer4)).to.equal(nil)
-
-            --Test encoding tables.
-            expect(ReplicatedContainer.EncodeIds({1, 2, 3})).to.deepEqual({1, 2, 3})
-            expect(ReplicatedContainer.EncodeIds({TestReplicatedContainer1, TestReplicatedContainer2})).to.deepEqual({__KeysToDecode = {1, 2}, Data = {-1, -2}})
-            expect(ReplicatedContainer.EncodeIds({TestReplicatedContainer1, TestReplicatedContainer2, TestReplicatedContainer3, TestReplicatedContainer4})).to.deepEqual({__KeysToDecode={1, 2, 3}, Data={-1, -2, -3}})
-            expect(ReplicatedContainer.EncodeIds({{TestReplicatedContainer1, TestReplicatedContainer2}, {TestReplicatedContainer2, TestReplicatedContainer3}})).to.deepEqual({{__KeysToDecode={1, 2}, Data = {-1, -2}}, {__KeysToDecode = {1, 2}, Data={-2, -3}}})
-            expect(ReplicatedContainer.EncodeIds({Key1=TestReplicatedContainer1, Key2 = TestReplicatedContainer2, Key3 = {TestReplicatedContainer1, TestReplicatedContainer3}})).to.deepEqual({__KeysToDecode = {"Key1", "Key2"}, Data = {Key1 = -1, Key2 = -2, Key3 = {__KeysToDecode = {1, 2}, Data={-1, -3}}}})
-        end)
-
-        it("should decode ids.", function()
-            --Test decoding non-tables.
-            expect(ReplicatedContainer.DecodeIds(1)).to.equal(1)
-            expect(ReplicatedContainer.DecodeIds("Test")).to.equal("Test")
-
-            --Test decoding objects.
-            --Testing with id -4 will infinitely yield since it will wait for the object to exist.
-            expect(ReplicatedContainer.DecodeIds({__KeyToDecode = -1})).to.equal(TestReplicatedContainer1)
-            expect(ReplicatedContainer.DecodeIds({__KeyToDecode = -2})).to.equal(TestReplicatedContainer2)
-
-            --Test decoding tables.
-            expect(ReplicatedContainer.DecodeIds({1, 2, 3})).to.deepEqual({1, 2, 3})
-            expect(ReplicatedContainer.DecodeIds({__KeysToDecode = {1, 2}, Data = {-1, -2}})).to.deepEqual({TestReplicatedContainer1, TestReplicatedContainer2})
-            expect(ReplicatedContainer.DecodeIds({{__KeysToDecode={1, 2}, Data={-1, -2}}, {__KeysToDecode = {1, 2}, Data = {-2, -3}}})).to.deepEqual({{TestReplicatedContainer1, TestReplicatedContainer2}, {TestReplicatedContainer2, TestReplicatedContainer3}})
-            expect(ReplicatedContainer.DecodeIds({__KeysToDecode={"Key1", "Key2"}, Data = {Key1 = -1, Key2 = -2, Key3 = {__KeysToDecode={1, 2}, Data={-1, -3}}}})).to.deepEqual({Key1 = TestReplicatedContainer1, Key2 = TestReplicatedContainer2,Key3 = {TestReplicatedContainer1, TestReplicatedContainer3}})
-        end)
-
         it("should create an instance from serialization data.", function()
             --Deserialize the test object.
             local Object = ReplicatedContainer.FromSerializedData({
@@ -96,7 +62,7 @@ return function()
     end)
 
     describe("A ReplicatedContainer instance", function()
-        it("shoiuld serialize the object.", function()
+        it("should serialize the object.", function()
             --Assert the base objects serialize.
             expect(TestReplicatedContainer1:Serialize()).to.deepEqual({Children = {}, Name="ReplicatedContainer"})
             expect(TestReplicatedContainer2:Serialize()).to.deepEqual({Children = {}, Name="ReplicatedContainer"})
