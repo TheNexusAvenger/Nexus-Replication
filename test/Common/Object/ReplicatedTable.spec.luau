@@ -1,6 +1,5 @@
 --Tests the ReplicatedTable class.
 --!strict
---$NexusUnitTestExtensions
 
 local NexusReplicationModule = game:GetService("ReplicatedStorage"):WaitForChild("NexusReplication")
 local ReplicatedTable = require(NexusReplicationModule:WaitForChild("Common"):WaitForChild("Object"):WaitForChild("ReplicatedTable"))
@@ -14,35 +13,43 @@ return function()
         TestReplicatedTable:Destroy()
     end)
 
+    local function AssertListEqual<T>(Table1: {T}, Table2: {T})
+        expect(#Table1).to.equal(#Table2)
+        for i, Value in Table1 do
+            expect(Value).to.equal(Table2[i])
+        end
+    end
+
     describe("A ReplicatedTable instance", function()
+
         it("should add and remove values.", function()
             --Add several keys.
             TestReplicatedTable:Add("Test1")
-            expect(TestReplicatedTable.Table).to.deepEqual({"Test1"})
+            AssertListEqual(TestReplicatedTable.Table, {"Test1"})
             TestReplicatedTable:Add("Test2")
-            expect(TestReplicatedTable.Table).to.deepEqual({"Test1", "Test2"})
+            AssertListEqual(TestReplicatedTable.Table, {"Test1", "Test2"})
             TestReplicatedTable:Add("Test4")
-            expect(TestReplicatedTable.Table).to.deepEqual({"Test1", "Test2", "Test4"})
+            AssertListEqual(TestReplicatedTable.Table, {"Test1", "Test2", "Test4"})
             TestReplicatedTable:Add("Test3", 3)
-            expect(TestReplicatedTable.Table).to.deepEqual({"Test1", "Test2", "Test3", "Test4"})
+            AssertListEqual(TestReplicatedTable.Table, {"Test1", "Test2", "Test3", "Test4"})
 
             --Test setting values.
             TestReplicatedTable:Set(3,"Test5")
-            expect(TestReplicatedTable.Table).to.deepEqual({"Test1", "Test2", "Test5", "Test4"})
+            AssertListEqual(TestReplicatedTable.Table, {"Test1", "Test2", "Test5", "Test4"})
             TestReplicatedTable:Set(5,"Test6")
-            expect(TestReplicatedTable.Table).to.deepEqual({"Test1", "Test2", "Test5", "Test4", "Test6"})
+            AssertListEqual(TestReplicatedTable.Table, {"Test1", "Test2", "Test5", "Test4", "Test6"})
 
             --Test removing values.
             TestReplicatedTable:Remove("Test5")
-            expect(TestReplicatedTable.Table).to.deepEqual({"Test1", "Test2", "Test4", "Test6"})
+            AssertListEqual(TestReplicatedTable.Table, {"Test1", "Test2", "Test4", "Test6"})
             TestReplicatedTable:Remove("Test5")
-            expect(TestReplicatedTable.Table).to.deepEqual({"Test1", "Test2", "Test4", "Test6"})
+            AssertListEqual(TestReplicatedTable.Table, {"Test1", "Test2", "Test4", "Test6"})
             TestReplicatedTable:RemoveAt(3)
-            expect(TestReplicatedTable.Table).to.deepEqual({"Test1", "Test2", "Test6"})
+            AssertListEqual(TestReplicatedTable.Table, {"Test1", "Test2", "Test6"})
             TestReplicatedTable:RemoveAt(3)
-            expect(TestReplicatedTable.Table).to.deepEqual({"Test1", "Test2"})
+            AssertListEqual(TestReplicatedTable.Table, {"Test1", "Test2"})
             TestReplicatedTable:RemoveAt(3)
-            expect(TestReplicatedTable.Table).to.deepEqual({"Test1", "Test2"})
+            AssertListEqual(TestReplicatedTable.Table, {"Test1", "Test2"})
         end)
 
         it("should get values.", function()
@@ -61,10 +68,10 @@ return function()
             expect(TestReplicatedTable:Get(0)).to.equal(nil)
 
             --Test getting all values.
-            expect(TestReplicatedTable:GetAll()).to.deepEqual({"Test1", "Test2", "Test3", "Test4"})
-            expect(TestReplicatedTable:GetAll(function(Value)
+            AssertListEqual(TestReplicatedTable:GetAll(), {"Test1", "Test2", "Test3", "Test4"})
+            AssertListEqual(TestReplicatedTable:GetAll(function(Value)
                 return Value == "Test2" or Value == "Test3"
-            end)).to.deepEqual({"Test2", "Test3"})
+            end), {"Test2", "Test3"})
         end)
 
         it("should find values.", function()

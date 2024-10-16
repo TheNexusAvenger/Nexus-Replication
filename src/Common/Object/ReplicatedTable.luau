@@ -77,7 +77,7 @@ function ReplicatedTable.RemoveAt<T>(self: NexusInstanceReplicatedTable<T>, Inde
     table.remove(self.Table,Index)
     self.ItemRemoved:Fire(Value)
     if RunService:IsServer() then
-        self:SendSignal("RemoveAt",self.Table,Value)
+        self:SendSignal("RemoveAt", self.Table,Value)
     end
 end
 
@@ -115,7 +115,7 @@ end
 Returns all the values that pass a given function.
 If no function is given, all values are returned.
 --]]
-function ReplicatedTable.GetAll<T>(self: NexusInstanceReplicatedTable<T>, ConditionFunction: (T) -> (boolean)?): {T}
+function ReplicatedTable.GetAll<T>(self: NexusInstanceReplicatedTable<T>, ConditionFunction: ((T) -> (boolean))?): {T}
     local Values = {}
     for _, Value in self.Table do
         if not ConditionFunction or ConditionFunction(Value) then
@@ -161,4 +161,4 @@ end
 
 
 
-return NexusInstance.ToInstance(ReplicatedTable) :: NexusInstance.NexusInstanceClass<typeof(ReplicatedTable), <T>() -> (ReplicatedTable<T>)>
+return NexusInstance.ToInstance(ReplicatedTable) :: NexusInstance.NexusInstanceClass<typeof(ReplicatedTable), <T>() -> (NexusInstanceReplicatedTable<T>)>
