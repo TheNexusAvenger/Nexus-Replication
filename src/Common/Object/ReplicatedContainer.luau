@@ -81,7 +81,7 @@ function ReplicatedContainer.AddToSerialization(self: NexusInstanceReplicatedCon
 
     --Replicate changes from the server to the client.
     if RunService:IsServer() then
-        self:OnPropertyChanged(PropertyName, function(_, NewValue: any)
+        self:OnPropertyChanged(PropertyName, function(NewValue: any)
             if not self.ObjectReplicationIntegration then return end
             self:SendSignal("Changed_"..PropertyName, self.ObjectReplicationIntegration.EncodeIds(NewValue))
         end)

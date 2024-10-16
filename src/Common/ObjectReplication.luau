@@ -275,10 +275,10 @@ function ObjectReplication.RegisterType(self: NexusInstanceObjectReplication, Ty
     --Add the object replication integration.
     Class.ObjectReplicationIntegration = {
         EncodeIds = function(Value: any): ()
-            self:EncodeIds(Value)
+            return self:EncodeIds(Value)
         end,
         DecodeIds = function(Value: any): ()
-            self:DecodeIds(Value)
+            return self:DecodeIds(Value)
         end,
         SendSignal = function(Object: any, Name: string, ...: any): ()
             self:SendSignal(Object, Name, ...)
