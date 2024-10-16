@@ -272,6 +272,23 @@ end
 Registers a class for a type.
 --]]
 function ObjectReplication.RegisterType(self: NexusInstanceObjectReplication, Type: string, Class: any): ()
+    --Add the object replication integration.
+    Class.ObjectReplicationIntegration = {
+        EncodeIds = function(Value: any): ()
+            self:EncodeIds(Value)
+        end,
+        DecodeIds = function(Value: any): ()
+            self:DecodeIds(Value)
+        end,
+        SendSignal = function(Object: any, Name: string, ...: any): ()
+            self:SendSignal(Object, Name, ...)
+        end,
+        DisposeObject = function(Id: number)
+            self:DisposeObject(Id)
+        end,
+    }
+
+    --Store the class.
     self.TypeClasses[Type] = Class
     self.TypeRegistered:Fire()
 end

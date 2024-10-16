@@ -3,12 +3,16 @@
 
 local RunService = game:GetService("RunService")
 
-local NexusReplication = require(script.Parent.Parent.Parent)
-
 local NexusInstance = require(script.Parent.Parent.Parent:WaitForChild("NexusInstance"))
-local ObjectReplication = NexusReplication:GetObjectReplicator()
 
-local ReplicatedContainer = {}
+local ReplicatedContainer = {
+    ObjectReplicationIntegration = nil :: {
+        EncodeIds: (Value: any) -> (any),
+        DecodeIds: (Value: any) -> (any),
+        SendSignal: (Object: any, Name: string, ...any) -> (),
+        DisposeObject: (Id: number) -> (),
+    }?,
+}
 ReplicatedContainer.__index = ReplicatedContainer
 
 export type ReplicatedContainer = {
@@ -78,11 +82,13 @@ function ReplicatedContainer.AddToSerialization(self: NexusInstanceReplicatedCon
     --Replicate changes from the server to the client.
     if RunService:IsServer() then
         self:OnPropertyChanged(PropertyName, function(_, NewValue: any)
-            self:SendSignal("Changed_"..PropertyName, ObjectReplication:EncodeIds(NewValue))
+            if not self.ObjectReplicationIntegration then return end
+            self:SendSignal("Changed_"..PropertyName, self.ObjectReplicationIntegration.EncodeIds(NewValue))
         end)
     else
         self:ListenToSignal("Changed_"..PropertyName, function(NewValue: any)
-            (self :: any)[PropertyName] = ObjectReplication:DecodeIds(NewValue)
+            if not self.ObjectReplicationIntegration then return end
+            (self :: any)[PropertyName] = self.ObjectReplicationIntegration.DecodeIds(NewValue)
         end)
     end
 end
@@ -91,7 +97,8 @@ end
 Sends a signal to the clients.
 --]]
 function ReplicatedContainer.SendSignal(self: NexusInstanceReplicatedContainer, Name: string, ...: any): ()
-    ObjectReplication:SendSignal(self, Name, ...)
+    if not self.ObjectReplicationIntegration then return end
+    self.ObjectReplicationIntegration.SendSignal(self, Name, ...)
 end
 
 --[[
@@ -211,7 +218,9 @@ function ReplicatedContainer.Destroy(self: NexusInstanceReplicatedContainer)
     if RunService:IsServer() then
         self:SendSignal("Destroy")
     end
-    ObjectReplication:DisposeObject(self.Id)
+    if self.ObjectReplicationIntegration then
+        self.ObjectReplicationIntegration.DisposeObject(self.Id)
+    end
 
     --Clear the object.
     self:Dispose()

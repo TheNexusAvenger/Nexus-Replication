@@ -7,28 +7,22 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 local RunService = game:GetService("RunService")
 
-local NexusReplication = require(script.Parent.Parent)
-local ObjectReplicator = NexusReplication:GetObjectReplicator()
-local ObjectRegistry = ObjectReplicator.ObjectRegistry :: {[number]: StubbedReplicatedContainer}
-local DisposeObjectRegistry = ObjectReplicator.DisposeObjectRegistry :: {[number]: StubbedReplicatedContainer}
+local ObjectReplicator = require(script.Parent.Parent:WaitForChild("Common"):WaitForChild("ObjectReplication"))
+local ObjectReplicatorInstance = ObjectReplicator.GetInstance()
+local ObjectRegistry = ObjectReplicatorInstance.ObjectRegistry
+local DisposeObjectRegistry = ObjectReplicatorInstance.DisposeObjectRegistry
 
-export type StubbedReplicatedContainer = {
-    Type: string,
-    Id: number,
-    SerializedProperties: {string},
-    [any]: any,
-}
 
 
 --[[
 Dumps an object's information.
 --]]
-local function DumpObject(Object: StubbedReplicatedContainer, AddPrint: (string) -> (), AddWarning: (string) -> (), AddIgnore: (string) -> ()): ()
+local function DumpObject(Object: ObjectReplicator.StubbedReplicatableInstance, AddPrint: (string) -> (), AddWarning: (string) -> (), AddIgnore: (string) -> ()): ()
     --Output the name.
     AddPrint("     Object "..tostring(Object.Id).." ("..tostring(Object.Type)..")")
 
     --Output the properties.
-    for _, PropertyName in Object.SerializedProperties do
+    for _, PropertyName in Object.SerializedProperties or {} :: {string} do
         local Value = (Object :: any)[PropertyName]
         if typeof(Value) == "table" and Value.Id and Value.SerializedProperties then
             local Id = Value.Id
@@ -66,7 +60,7 @@ end
 --[[
 Dumps a table of objects.
 --]]
-local function DumpObjectTable(Objects: {StubbedReplicatedContainer}, AddPrint: (string) -> (), AddWarning: (string) -> (), AddIgnore: (string) -> ()): ()
+local function DumpObjectTable(Objects: {ObjectReplicator.StubbedReplicatableInstance}, AddPrint: (string) -> (), AddWarning: (string) -> (), AddIgnore: (string) -> ()): ()
     --Sort the objects by id.
     local SortedObjects = {}
     for _, Object in Objects do
