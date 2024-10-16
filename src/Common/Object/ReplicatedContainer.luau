@@ -117,7 +117,7 @@ Invoked when a signal is invoked.
 function ReplicatedContainer.OnSignal(self: NexusInstanceReplicatedContainer, Name: string, ...: any): ()
     local Handlers = self.SignalListeners[Name]
     if Handlers then
-        for _,Handler in Handlers do
+        for _, Handler in Handlers do
             Handler(...)
         end
     end
@@ -235,4 +235,4 @@ end
 
 
 
-return NexusInstance.ToInstance(ReplicatedContainer) :: NexusInstance.NexusInstanceClass<typeof(ReplicatedContainer), () -> (ReplicatedContainer)>
+return NexusInstance.ToInstance(ReplicatedContainer) :: NexusInstance.NexusInstanceClass<typeof(ReplicatedContainer), () -> (NexusInstanceReplicatedContainer)>

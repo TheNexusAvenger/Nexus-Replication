@@ -3,7 +3,6 @@
 --$NexusUnitTestExtensions
 
 local NexusReplicationModule = game:GetService("ReplicatedStorage"):WaitForChild("NexusReplication")
-local NexusReplication = require(NexusReplicationModule)
 local ReplicatedTable = require(NexusReplicationModule:WaitForChild("Common"):WaitForChild("Object"):WaitForChild("ReplicatedTable"))
 
 return function()
@@ -13,9 +12,6 @@ return function()
     end)
     afterEach(function()
         TestReplicatedTable:Destroy()
-    end)
-    afterAll(function()
-        NexusReplication:ClearInstances()
     end)
 
     describe("A ReplicatedTable instance", function()

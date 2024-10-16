@@ -63,7 +63,7 @@ return function()
                 FireAllClients = function(_, Data)
                     FiredData = Data
                 end,
-            }
+            } :: any
 
             local TestObject = TestObjectReplication:CreateObject("TestClass")
             expect(TestObject.Id).to.equal(1)
@@ -81,7 +81,7 @@ return function()
                 Serialize = function()
                     return "TestData"
                 end,
-            })
+            } :: any)
 
             expect(Data).to.equal("TestData")
         end)
@@ -92,7 +92,7 @@ return function()
                 Property2 = "TestValue2",
                 Property3 = "TestValue3",
                 SerializedProperties = {"Property1", "Property2"},
-            })
+            } :: any)
 
             expect(Data.Property1).to.equal("TestValue1")
             expect(Data.Property2).to.equal("TestValue2")
@@ -116,7 +116,7 @@ return function()
                 FireAllClients = function(_, Data)
                     FiredData = Data
                 end,
-            }
+            } :: any
 
             local TestObject = TestObjectReplication:CreateObject("TestClass", 5)
             expect(TestObject.Id).to.equal(5)
@@ -143,7 +143,7 @@ return function()
 
             TestObjectReplication.ObjectCreatedEvent = {
                 FireAllClients = function(_, Data) end,
-            }
+            } :: any
             task.spawn(function()
                 TestObjectReplication:CreateObject("TestClass")
             end)
@@ -169,7 +169,7 @@ return function()
 
             TestObjectReplication.ObjectCreatedEvent = {
                 FireAllClients = function(_, Data) end,
-            }
+            } :: any
             TestObjectReplication:CreateObject("TestClass")
             TestObjectReplication:DisposeObject(1)
 
@@ -187,7 +187,7 @@ return function()
                     FiredIndex = Index
                     FiredData = Data
                 end,
-            }
+            } :: any
 
             TestObjectReplication:SendSignal({Id = 1}, "TestData")
             expect(FiredIndex).to.equal(1)
@@ -211,7 +211,7 @@ return function()
                 FireAllClients = function(_, Data)
                     FiredData = Data
                 end,
-            }
+            } :: any
 
             local TestObject = TestObjectReplication:GetGlobalContainer()
             expect(TestObject.Id).to.equal(0)
@@ -231,19 +231,19 @@ return function()
 
             TestReplicatedContainer1 = {
                 Id = -1,
-            }
+            } :: any
             TestObjectReplication.ObjectRegistry[-1] = TestReplicatedContainer1
             TestReplicatedContainer2 = {
                 Id = -2,
-            }
+            } :: any
             TestObjectReplication.ObjectRegistry[-2] = TestReplicatedContainer2
             TestReplicatedContainer3 = {
                 Id = -3,
-            }
+            } :: any
             TestObjectReplication.ObjectRegistry[-3] = TestReplicatedContainer3
             TestReplicatedContainer4 = {
                 Id = -4,
-            }
+            } :: any
         end)
 
         afterEach(function()
@@ -299,10 +299,11 @@ return function()
             expect(TestObjectReplication.CurrentId).to.equal(-1)
             expect(TestObjectReplication.IdIncrementer).to.equal(-1)
             expect(TestObjectReplication.ReplicatorRole).to.equal("Client")
-            expect(TestObjectReplication.Client.InitialObjectsLoading).to.equal(0)
-            expect(TestObjectReplication.Client.InitialIds).to.equal(nil)
-            expect(TestObjectReplication.Client.LoadingStarted).to.never.equal(nil)
-            expect(TestObjectReplication.Client.ObjectLoaded).to.never.equal(nil)
+            local Client = (TestObjectReplication.Client :: any)
+            expect(Client.InitialObjectsLoading).to.equal(0)
+            expect(Client.InitialIds).to.equal(nil)
+            expect(Client.LoadingStarted).to.never.equal(nil)
+            expect(Client.ObjectLoaded).to.never.equal(nil)
         end)
 
         it("should load objects with FromSerializedData.", function()
@@ -379,7 +380,8 @@ return function()
             }
             TestObjectReplication:RegisterType("TestClass", TestClass)
 
-            TestObjectReplication.Client.QueuedSignals[5] = {
+            local Client = (TestObjectReplication.Client :: any)
+            Client.QueuedSignals[5] = {
                 {"TestData1"},
                 {"TestData2"},
             }
@@ -392,7 +394,7 @@ return function()
             expect(TestObject.Data).to.equal("Data")
             expect(FiredSignals[1]).to.equal("TestData1")
             expect(FiredSignals[2]).to.equal("TestData2")
-            expect(TestObjectReplication.Client.QueuedSignals[5]).to.equal(nil)
+            expect(Client.QueuedSignals[5]).to.equal(nil)
         end)
     end)
 end

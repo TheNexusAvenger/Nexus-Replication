@@ -2,7 +2,6 @@
 --!strict
 
 local NexusReplicationModule = game:GetService("ReplicatedStorage"):WaitForChild("NexusReplication")
-local NexusReplication = require(NexusReplicationModule)
 local Timer = require(NexusReplicationModule:WaitForChild("Example"):WaitForChild("Timer"))
 
 return function()
@@ -12,9 +11,6 @@ return function()
     end)
     afterEach(function()
         TestTimer:Destroy()
-    end)
-    afterAll(function()
-        NexusReplication:ClearInstances()
     end)
 
     describe("A timer instance", function()
