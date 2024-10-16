@@ -36,6 +36,7 @@ export type ObjectReplication = {
     SendSignalEvent: RemoteEvent,
     GetObjectsFunction: RemoteFunction,
     Client: {
+        LoadingRequested: boolean,
         InitialObjectsLoading: number,
         InitialIds: {[number]: boolean}?,
         QueuedSignals: {[number]: {any}},
@@ -74,6 +75,7 @@ function ObjectReplication.__new(self: NexusInstanceObjectReplication, Replicato
         self.CurrentId = -1
         self.IdIncrementer = -1
         self.Client = {
+            LoadingRequested = false,
             InitialObjectsLoading = 0,
             InitialIds = nil, --Set in LoadServerObjects
             QueuedSignals = {},
@@ -374,6 +376,12 @@ function ObjectReplication.LoadServerObjects(self: NexusInstanceObjectReplicatio
     if not self.Client then
         error("ObjectReplication::LoadServerObjects can only be called on the client.")
     end
+
+    --Return if the loading as already started.
+    if self.Client.LoadingRequested then
+        return
+    end
+    self.Client.LoadingRequested = true
 
     --Get the ids of the objects.
     --This is done before creating objects from ObjectCreated due to a race condition where it is invoked first.
