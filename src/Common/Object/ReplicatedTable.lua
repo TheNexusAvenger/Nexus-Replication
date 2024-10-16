@@ -10,7 +10,6 @@ local ReplicatedContainer = require(script.Parent.Parent.Parent:WaitForChild("Co
 local ReplicatedTable = {}
 ReplicatedTable.__index = ReplicatedTable
 setmetatable(ReplicatedTable, ReplicatedContainer)
-NexusReplication:RegisterType("ReplicatedTable",ReplicatedTable)
 
 export type ReplicatedTable<T> = {
     Table: {[any]: T},

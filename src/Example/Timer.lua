@@ -10,7 +10,6 @@ local ReplicatedContainer = require(script.Parent.Parent:WaitForChild("Common"):
 local Timer = {}
 Timer.__index = Timer
 setmetatable(Timer, ReplicatedContainer)
-NexusReplication:RegisterType("Timer", Timer)
 
 export type TimerStatte = "STOPPED" | "ACTIVE" | "COMPLETE"
 export type Timer = {
@@ -55,7 +54,7 @@ function Timer.Start(self: NexusInstanceTimer): ()
     if self.State ~= "STOPPED" then return end
 
     --Start the timer.
-    local StartTime,RemainingTime = ObjectReplication:GetServerTime(),self.RemainingTimeFromStart
+    local StartTime,RemainingTime = ObjectReplication:GetServerTime(), self.RemainingTimeFromStart
     self.StartTime = StartTime
     self.State = "ACTIVE"
 

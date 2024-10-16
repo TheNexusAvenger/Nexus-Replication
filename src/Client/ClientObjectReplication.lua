@@ -27,55 +27,8 @@ export type NexusInstanceClientObjectReplication = NexusInstance.NexusInstance<C
 
 
 --[[
-Creates the object replicator.
---]]
-function ClientObjectReplication.__new(self: NexusInstanceClientObjectReplication): ()
-    ObjectReplication.__new(self :: any)
-
-    --Set the id and incrementer for client-only objects.
-    self.CurrentId = -1
-    self.IdIncrementer = -1
-
-    --Store the loading state.
-    self.LoadingStarted = self:CreateEvent()
-    self.ObjectLoaded = self:CreateEvent()
-    self.InitialObjectsLoading = 0
-    self.InitialIds = nil --Set in LoadServerObjects
-    self.QueuedSignals = {}
-
-    --Connect loading new objects.
-    ObjectCreated.OnClientEvent:Connect(function(ObjectData)
-        --Return if the object will be or has been created by the initial ids.
-        --This is due to a race condition where this is invoked first.
-        if not self.InitialIds then
-            self:GetPropertyChangedSignal("InitialIds"):Wait()
-        end
-        if (self.InitialIds :: {[number]: boolean})[ObjectData.Id] then
-            return
-        end
-
-        --Create the object.
-        self:LoadObject(ObjectData)
-    end)
-
-    --Connect listening to events.
-    SendSignal.OnClientEvent:Connect(function(Id, ...)
-        local Object = self.ObjectRegistry[Id] or self.DisposeObjectRegistry[Id]
-        if Object then
-            Object:OnSignal(...)
-        elseif Id then
-            if not self.QueuedSignals[Id] then
-                self.QueuedSignals[Id] = {}
-            end
-            table.insert(self.QueuedSignals[Id], {...})
-        end
-    end)
-end
-
---[[
 Loads the current objects from the server.
-Done seprately from the constructor due to a
-cyclic dependency.
+Can only be called on the client.
 --]]
 function ClientObjectReplication.LoadServerObjects(self: NexusInstanceClientObjectReplication): ()
     --Get the ids of the objects.
@@ -104,6 +57,7 @@ end
 
 --[[
 Loads an object from serialization data.
+Can only be called on the client.
 --]]
 function ClientObjectReplication.LoadObject(self: NexusInstanceClientObjectReplication, ObjectData: any): any
     --Create the object.
@@ -121,27 +75,7 @@ function ClientObjectReplication.LoadObject(self: NexusInstanceClientObjectRepli
     return Object
 end
 
---[[
-Yields for the initial objects to load.
---]]
-function ClientObjectReplication.YieldForInitialLoad(self: NexusInstanceClientObjectReplication): ()
-    if self.LoadingStarted then
-        self.LoadingStarted:Wait()
-    end
-    while self.InitialObjectsLoading > 0 do
-        self.ObjectLoaded:Wait()
-    end
-end
 
---[[
-Returns the global replicated container.
-If GetGlobalContainer is not called on the server,
-this will yield indefinetly.
---]]
-function ClientObjectReplication.GetGlobalContainer(self: NexusInstanceClientObjectReplication): any
-    self:YieldForInitialLoad()
-    return self:GetObject(0)
-end
 
 
 

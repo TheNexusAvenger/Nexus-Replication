@@ -8,7 +8,6 @@ local ObjectReplication = NexusReplication:GetObjectReplicator()
 
 local ReplicatedContainer = {}
 ReplicatedContainer.__index = ReplicatedContainer
-NexusReplication:RegisterType("ReplicatedContainer", ReplicatedContainer)
 
 export type ReplicatedContainer = {
     Type: string,

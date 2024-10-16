@@ -1,34 +1,47 @@
 --Base for replicating objects.
 --!strict
 
-local TYPE_TO_PATH = {
-    ReplicatedContainer = "Common.Object.ReplicatedContainer",
-    ReplicatedTable = "Common.Object.ReplicatedTable",
-    Timer = "Example.Timer",
-}
-
-
-
 local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
 
-local NexusReplication = require(script.Parent.Parent)
 local NexusInstance = require(script.Parent.Parent:WaitForChild("NexusInstance"))
 
-local ObjectReplication = {}
+local ObjectReplication = {
+    Instance = nil :: NexusInstanceObjectReplication?,
+}
 ObjectReplication.__index = ObjectReplication
+local NexusInstanceObjectReplication = NexusInstance.ToInstance(ObjectReplication) :: NexusInstance.NexusInstanceClass<typeof(ObjectReplication), (ReplicatorRole: ReplicatorRole?) -> (NexusInstanceObjectReplication)>
 
-export type StubbedReplicatedContainer = {
-    Type: string,
-    Id: number,
-    Serialize: (self: StubbedReplicatedContainer) -> (any),
+export type StubbedReplicatableInstanceClass = {
+    new: () -> (StubbedReplicatableInstance),
+    FromSerializedData: ((SerializationData: any, Id: number) -> ())?,
     [any]: any,
 }
+export type StubbedReplicatableInstance = {
+    Type: string,
+    Id: number,
+    Serialize: (self: StubbedReplicatableInstance) -> (any),
+    [any]: any,
+}
+export type ReplicatorRole = "Client" | "Server"
 export type ObjectReplication = {
+    ReplicatorRole: ReplicatorRole,
     CurrentId: number,
     IdIncrementer: number,
     TypeClasses: {[string]: any},
-    ObjectRegistry: {[number]: StubbedReplicatedContainer},
-    DisposeObjectRegistry: {[number]: StubbedReplicatedContainer},
+    TypeRegistered: NexusInstance.TypedEvent<>,
+    ObjectRegistry: {[number]: StubbedReplicatableInstance},
+    DisposeObjectRegistry: {[number]: StubbedReplicatableInstance},
+    ObjectCreatedEvent: RemoteEvent,
+    SendSignalEvent: RemoteEvent,
+    GetObjectsFunction: RemoteFunction,
+    Client: {
+        InitialObjectsLoading: number,
+        InitialIds: {[number]: boolean}?,
+        QueuedSignals: {[number]: {any}},
+        LoadingStarted: NexusInstance.TypedEvent<>?,
+        ObjectLoaded: NexusInstance.TypedEvent<>,
+    }?,
 } & typeof(setmetatable({}, ObjectReplication))
 export type NexusInstanceObjectReplication = NexusInstance.NexusInstance<ObjectReplication>
 
@@ -37,13 +50,141 @@ export type NexusInstanceObjectReplication = NexusInstance.NexusInstance<ObjectR
 --[[
 Creates the replicator.
 --]]
-function ObjectReplication:__new(): ()
+function ObjectReplication.__new(self: NexusInstanceObjectReplication, ReplicatorRole: ReplicatorRole?): ()
+    --Set up the state.
     self.CurrentId = 1
     self.IdIncrementer = 1
     self.TypeClasses = {}
-    self.ObjectRegistry = {}
+    self.TypeRegistered = self:CreateEvent()
+    self.ObjectRegistry = {} :: {StubbedReplicatableInstance}
     self.DisposeObjectRegistry = {}
     setmetatable(self.DisposeObjectRegistry, {__mode="v"})
+
+    --Store or determine the replicator role.
+    if ReplicatorRole ~= nil then
+        self.ReplicatorRole = ReplicatorRole
+    elseif RunService:IsServer() then
+        self.ReplicatorRole = "Server"
+    else
+        self.ReplicatorRole = "Client"
+    end
+
+    --Add the client state.
+    if self.ReplicatorRole == "Client" then
+        self.CurrentId = -1
+        self.IdIncrementer = -1
+        self.Client = {
+            InitialObjectsLoading = 0,
+            InitialIds = nil, --Set in LoadServerObjects
+            QueuedSignals = {},
+            LoadingStarted = self:CreateEvent(),
+            ObjectLoaded = self:CreateEvent(),
+        }
+    end
+end
+
+--[[
+Returns an instance of the object replication.
+--]]
+function ObjectReplication.GetInstance(): NexusInstanceObjectReplication
+    --Create the instance if it doesn't exist.
+    if not ObjectReplication.Instance then
+        local NewInstance = NexusInstanceObjectReplication.new()
+        ObjectReplication.Instance = NewInstance
+        NewInstance:ConnectReplication()
+    end
+
+    --Start loading the objects.
+    local ObjectReplicationInstance = ObjectReplication.Instance :: NexusInstanceObjectReplication
+    if ObjectReplicationInstance.ReplicatorRole == "Client" then
+        ObjectReplicationInstance:LoadServerObjects()
+    end
+
+    --Return the instance.
+    return ObjectReplicationInstance
+end
+
+--[[
+Connects replication.
+--]]
+function ObjectReplication.ConnectReplication(self: NexusInstanceObjectReplication): ()
+    --Prepare the replication.
+    if not self.ObjectCreatedEvent or not self.SendSignalEvent or not self.GetObjectsFunction then
+        if self.ReplicatorRole == "Server" then
+            --Create the replication objects.
+            local ObjectCreatedEvent = script:FindFirstChild("ObjectCreated") or Instance.new("RemoteEvent")
+            ObjectCreatedEvent.Name = "ObjectCreated"
+            ObjectCreatedEvent.Parent = script
+            self.ObjectCreatedEvent = ObjectCreatedEvent
+
+            local SendSignalEvent = script:FindFirstChild("SendSignal") or Instance.new("RemoteEvent")
+            SendSignalEvent.Name = "SendSignal"
+            SendSignalEvent.Parent = script
+            self.SendSignalEvent = SendSignalEvent
+
+            local GetObjectsFunction = script:FindFirstChild("GetObjects") or Instance.new("RemoteFunction")
+            GetObjectsFunction.Name = "GetObjects"
+            GetObjectsFunction.Parent = script
+            self.GetObjectsFunction = GetObjectsFunction
+        else
+            --Wait for the replication objects.
+            self.ObjectCreatedEvent = script:FindFirstChild("ObjectCreated")
+            self.SendSignalEvent = script:FindFirstChild("SendSignal")
+            self.GetObjectsFunction = script:FindFirstChild("GetObjects")
+        end
+    end
+
+    --Set up the replication.
+    if self.ReplicatorRole == "Server" then
+        --Set up fetching all the objects.
+        function self.GetObjectsFunction.OnServerInvoke()
+            local Objects = {}
+            for _, Object in self.ObjectRegistry do
+                table.insert(Objects,{
+                    Type = Object.Type,
+                    Id = Object.Id,
+                    Object = Object:Serialize(),
+                })
+            end
+            return Objects
+        end
+    else
+        --Connect loading new objects.
+        if not self.Client then
+            error("Client state not loaded.")
+        end
+        self.ObjectCreatedEvent.OnClientEvent:Connect(function(ObjectData)
+            --Return if the object will be or has been created by the initial ids.
+            --This is due to a race condition where this is invoked first.
+            if not self.Client.InitialIds then
+                self:GetPropertyChangedSignal("InitialIds"):Wait()
+            end
+            if (self.Client.InitialIds :: {[number]: boolean})[ObjectData.Id] then
+                return
+            end
+
+            --Create the object.
+            self:LoadObject(ObjectData)
+        end)
+
+        --Connect listening to events.
+        self.SendSignalEvent.OnClientEvent:Connect(function(Id, ...)
+            local Object = self.ObjectRegistry[Id] or self.DisposeObjectRegistry[Id]
+            if Object then
+                Object:OnSignal(...)
+            elseif Id then
+                if not self.Client.QueuedSignals[Id] then
+                    self.Client.QueuedSignals[Id] = {}
+                end
+                table.insert(self.Client.QueuedSignals[Id], table.pack(...))
+            end
+        end)
+    end
+
+    --Load the included types.
+    self:RegisterType("ReplicatedContainer", require(script.Parent:WaitForChild("Object"):WaitForChild("ReplicatedContainer")))
+    self:RegisterType("ReplicatedTable", require(script.Parent:WaitForChild("Object"):WaitForChild("ReplicatedTable")))
+    self:RegisterType("Timer", require(script.Parent.Parent:WaitForChild("Example"):WaitForChild("Timer")))
 end
 
 --[[
@@ -54,23 +195,16 @@ function ObjectReplication.RegisterType(self: NexusInstanceObjectReplication, Ty
         Class:AddFromSerializeData(Type)
     end
     self.TypeClasses[Type] = Class
+    self.TypeRegistered:Fire()
 end
 
 --[[
 Returns the class for the given type.
 --]]
-function ObjectReplication.GetClass(self: NexusInstanceObjectReplication, Type: string): any
-    --Load the type.
-    if not self.TypeClasses[Type] then
-        local Path = TYPE_TO_PATH[Type]
-        if Path then
-            NexusReplication:GetResource(Path)
-        end
-    end
-
+function ObjectReplication.GetClass(self: NexusInstanceObjectReplication, Type: string): StubbedReplicatableInstanceClass
     --Wait for the type to exist.
     while not self.TypeClasses[Type] do
-        task.wait()
+        self.TypeRegistered:Wait()
     end
 
     --Return the class.
@@ -97,9 +231,86 @@ function ObjectReplication.CreateObject(self: NexusInstanceObjectReplication, Ty
     end
 
     --Store the object.
-    Object.Id = Id
+    Object.Id = Id :: number
     Object.Type = Type
     self.ObjectRegistry[Id :: number] = Object
+
+    --Serialize the object and send it to the clients.
+    if self.ReplicatorRole == "Server" then
+        self.ObjectCreatedEvent:FireAllClients({
+            Type = Type,
+            Id = Object.Id,
+            Object = Object:Serialize(),
+        })
+    end
+
+    --Return the object.
+    return Object
+end
+
+--[[
+Loads the current objects from the server.
+Can only be called on the client.
+--]]
+function ObjectReplication.LoadServerObjects(self: NexusInstanceObjectReplication): ()
+    --Throw an error if the client is not set up.
+    if not self.Client then
+        error("ObjectReplication::LoadServerObjects can only be called on the client.")
+    end
+
+    --Get the ids of the objects.
+    --This is done before creating objects from ObjectCreated due to a race condition where it is invoked first.
+    local InitialObjects = self.GetObjectsFunction:InvokeServer()
+    local InitialIds = {}
+    for _,ObjectData in InitialObjects do
+        InitialIds[ObjectData.Id] = true
+    end
+    self.Client.InitialIds = InitialIds
+
+    --Load to the objects.
+    for _, ObjectData in InitialObjects do
+        self.Client.InitialObjectsLoading = self.Client.InitialObjectsLoading + 1
+        task.spawn(function()
+            self:LoadObject(ObjectData)
+            self.Client.InitialObjectsLoading = self.Client.InitialObjectsLoading - 1
+            self.Client.ObjectLoaded:Fire()
+        end)
+    end
+    if self.Client.LoadingStarted then
+        self.Client.LoadingStarted:Fire()
+        self.Client.LoadingStarted = nil
+    end
+end
+
+--[[
+Loads an object from serialization data.
+Can only be called on the client.
+--]]
+function ObjectReplication.LoadObject(self: NexusInstanceObjectReplication, ObjectData: any): any
+    --Throw an error if the client is not set up.
+    if not self.Client then
+        error("ObjectReplication::LoadServerObjects can only be called on the client.")
+    end
+
+    --Create the object.
+    local Class = self:GetClass(ObjectData.Type)
+    local Object = nil
+    if Class.FromSerializedData then
+        Object = Class.FromSerializedData(ObjectData.Object, ObjectData.Id)
+    else
+        Object = Class.new()
+        Object.Id = ObjectData.Id
+    end
+
+    --Run the queued signals.
+    if self.Client.QueuedSignals[ObjectData.Id] then
+        for _, SignalData in self.Client.QueuedSignals[ObjectData.Id] do
+            Object:OnSignal(table.unpack(SignalData))
+        end
+        self.Client.QueuedSignals[ObjectData.Id] = nil
+    end
+
+    --Return the object.
     return Object
 end
 
@@ -134,14 +345,29 @@ end
 Sends a signal for an object.
 --]]
 function ObjectReplication.SendSignal(self: NexusInstanceObjectReplication, Object: any, Name: string, ...: any): ()
-    error("Not implemented in the given context.")
+    if self.ReplicatorRole ~= "Server" then
+        error("ObjectReplication::SendSignal can only be called on the server.")
+    end
+    self.SendSignalEvent:FireAllClients(Object.Id, Name, ...)
 end
 
 --[[
 Returns the global replicated container.
 --]]
 function ObjectReplication.GetGlobalContainer(self: NexusInstanceObjectReplication): any
-    error("Not implemented in the given context.")
+    if self.ReplicatorRole == "Server" then
+        --Create the container if it doesn't exist.
+        if not self.ObjectRegistry[0] and not self.DisposeObjectRegistry[0] then
+            local Object = self:CreateObject("ReplicatedContainer",0)
+            Object.Name = "GlobalReplicatedContainer"
+        end
+    else
+        --Wait for the initial load.
+        self:YieldForInitialLoad()
+    end
+
+    --Return the container.
+    return self:GetObject(0)
 end
 
 --[[
@@ -151,6 +377,31 @@ function ObjectReplication.GetServerTime(self: NexusInstanceObjectReplication): 
     return Workspace:GetServerTimeNow()
 end
 
+--[[
+Yields for the initial objects to load.
+Can only be called on the client.
+--]]
+function ObjectReplication.YieldForInitialLoad(self: NexusInstanceObjectReplication): ()
+    if not self.Client then
+        error("ObjectReplication::YieldForInitialLoad can only be called on the client.")
+    end
+    if self.Client.LoadingStarted then
+        self.Client.LoadingStarted:Wait()
+    end
+    while self.Client.InitialObjectsLoading > 0 do
+        self.Client.ObjectLoaded:Wait()
+    end
+end
+
+--[[
+Destroys the object replication.
+--]]
+function ObjectReplication.Destroy(self: NexusInstanceObjectReplication): ()
+    self.ObjectCreatedEvent:Destroy()
+    self.SendSignalEvent:Destroy()
+    self.GetObjectsFunction:Destroy()
+end
 
 
-return NexusInstance.ToInstance(ObjectReplication) :: NexusInstance.NexusInstanceClass<typeof(ObjectReplication), () -> (NexusInstanceObjectReplication)>
+
+return NexusInstanceObjectReplication
