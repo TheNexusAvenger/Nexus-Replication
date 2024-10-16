@@ -1,18 +1,9 @@
 --Initializes Nexus Replication.
 --!strict
 
-local RunService = game:GetService("RunService")
-
 local NexusReplication = {}
 
 
-
---[[
-Returns if the system is on the server.
---]]
-function NexusReplication:IsServer(): boolean
-    return RunService:IsServer()
-end
 
 --[[
 Returns a resource for a path.
@@ -53,13 +44,6 @@ Returns the global replicated container.
 --]]
 function NexusReplication:GetGlobalContainer(): any
     return self:GetObjectReplicator():GetGlobalContainer()
-end
-
---[[
-Returns the current server time.
---]]
-function NexusReplication:GetServerTime(): number
-    return self:GetObjectReplicator():GetServerTime()
 end
 
 --[[

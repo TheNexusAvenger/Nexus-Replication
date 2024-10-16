@@ -371,13 +371,6 @@ function ObjectReplication.GetGlobalContainer(self: NexusInstanceObjectReplicati
 end
 
 --[[
-Returns the current server time.
---]]
-function ObjectReplication.GetServerTime(self: NexusInstanceObjectReplication): number
-    return Workspace:GetServerTimeNow()
-end
-
---[[
 Yields for the initial objects to load.
 Can only be called on the client.
 --]]

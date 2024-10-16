@@ -20,6 +20,8 @@ extra steps are required.
 
 ```lua
 --ModuleScript: ReplicatedStorage.DemoRound
+local RunService = game:GetService("RunService")
+
 local NexusReplication = require(game:GetService("ReplicatedStorage"):WaitForChild("NexusReplication"))
 local ReplicatedContainer = NexusReplication:GetResource("Common.Object.ReplicatedContainer")
 
@@ -37,7 +39,7 @@ function DemoRound:__new()
     --Create the state.
     --For a module loaded on the client and server, this should only be done on the server.
     --Note that RegisterType allows any class, so it can be server-specific or client-specific.
-    if NexusReplication:IsServer() then
+    if RunService:IsServer() then
         --For tables, ReplicatedTable is recommended to track changes.
         self.Players = NexusReplication:CreateObject("ReplicatedTable")
         --Timer is a built-in example class and can freely be used.
@@ -52,7 +54,7 @@ function DemoRound:__new()
     self:AddToSerialization("Timer")
 
     --Connect the timer ending.
-    if NexusReplication:IsServer() then
+    if RunService:IsServer() then
         self.Timer:GetPropertyChangedSignal("State"):Connect(function()
             if self.Timer.State == "COMPLETE" then
                 self.State = "ENDED"

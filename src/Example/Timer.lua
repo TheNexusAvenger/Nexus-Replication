@@ -1,10 +1,10 @@
 --Manages a timer state.
 --!strict
 
-local NexusReplication = require(script.Parent.Parent)
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
 
 local NexusInstance = require(script.Parent.Parent:WaitForChild("NexusInstance"))
-local ObjectReplication = NexusReplication:GetObjectReplicator()
 local ReplicatedContainer = require(script.Parent.Parent:WaitForChild("Common"):WaitForChild("Object"):WaitForChild("ReplicatedContainer"))
 
 local Timer = {}
@@ -54,15 +54,15 @@ function Timer.Start(self: NexusInstanceTimer): ()
     if self.State ~= "STOPPED" then return end
 
     --Start the timer.
-    local StartTime,RemainingTime = ObjectReplication:GetServerTime(), self.RemainingTimeFromStart
+    local StartTime,RemainingTime = Workspace:GetServerTimeNow(), self.RemainingTimeFromStart
     self.StartTime = StartTime
     self.State = "ACTIVE"
 
     --Wait for the timer to finish.
-    if NexusReplication:IsServer() then
+    if RunService:IsServer() then
         task.delay(RemainingTime, function()
             if (self.State :: TimerStatte) == "ACTIVE" and self.StartTime == StartTime and self.RemainingTimeFromStart == RemainingTime then
-                self.StartTime = ObjectReplication:GetServerTime()
+                self.StartTime = Workspace:GetServerTimeNow()
                 self.RemainingTimeFromStart = 0
                 self.State = "COMPLETE"
             end
@@ -76,7 +76,7 @@ Stops the timer.
 function Timer.Stop(self: NexusInstanceTimer): ()
     if self.State ~= "ACTIVE" then return end
     self.State = "STOPPED"
-    self.RemainingTimeFromStart = math.max(0, self.RemainingTimeFromStart - (ObjectReplication:GetServerTime() - self.StartTime))
+    self.RemainingTimeFromStart = math.max(0, self.RemainingTimeFromStart - (Workspace:GetServerTimeNow() - self.StartTime))
 end
 
 --[[
@@ -93,7 +93,7 @@ Returns the remaining time of the timer.
 --]]
 function Timer.GetRemainingTime(self: NexusInstanceTimer): number
     if self.State == "ACTIVE" then
-        return math.max(0, self.RemainingTimeFromStart - (ObjectReplication:GetServerTime() - self.StartTime))
+        return math.max(0, self.RemainingTimeFromStart - (Workspace:GetServerTimeNow() - self.StartTime))
     else
         return self.RemainingTimeFromStart
     end

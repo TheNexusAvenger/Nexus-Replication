@@ -2,7 +2,7 @@
 --Does not work well with ReplicatedContainer objects.
 --!strict
 
-local NexusReplication = require(script.Parent.Parent.Parent)
+local RunService = game:GetService("RunService")
 
 local NexusInstance = require(script.Parent.Parent.Parent:WaitForChild("NexusInstance"))
 local ReplicatedContainer = require(script.Parent.Parent.Parent:WaitForChild("Common"):WaitForChild("Object"):WaitForChild("ReplicatedContainer"))
@@ -38,7 +38,7 @@ function ReplicatedTable.__new<T>(self: NexusInstanceReplicatedTable<T>): ()
     self.ItemChanged = self:CreateEvent() :: NexusInstance.TypedEvent<T>
 
     --Connect the replication.
-    if not NexusReplication:IsServer() then
+    if not RunService:IsServer() then
         self:ListenToSignal("Add", function(NewTable: {any}, Value: any): ()
             self.Table = NewTable
             self.ItemAdded:Fire(Value)
@@ -64,7 +64,7 @@ function ReplicatedTable.Add<T>(self: NexusInstanceReplicatedTable<T>, Value: T,
         table.insert(self.Table, Value)
     end
     self.ItemAdded:Fire(Value)
-    if NexusReplication:IsServer() then
+    if RunService:IsServer() then
         self:SendSignal("Add", self.Table, Value, Index)
     end
 end
@@ -76,7 +76,7 @@ function ReplicatedTable.RemoveAt<T>(self: NexusInstanceReplicatedTable<T>, Inde
     local Value = self.Table[Index]
     table.remove(self.Table,Index)
     self.ItemRemoved:Fire(Value)
-    if NexusReplication:IsServer() then
+    if RunService:IsServer() then
         self:SendSignal("RemoveAt",self.Table,Value)
     end
 end
@@ -99,8 +99,8 @@ Sets the value at a given index.
 function ReplicatedTable.Set<T>(self: NexusInstanceReplicatedTable<T>, Index: any, Value: T): ()
     self.Table[Index] = Value
     self.ItemChanged:Fire(Index)
-    if NexusReplication:IsServer() then
-        self:SendSignal("Set",self.Table,Index)
+    if RunService:IsServer() then
+        self:SendSignal("Set", self.Table, Index)
     end
 end
 

@@ -1,6 +1,8 @@
 --Base class for an object that is replicated.
 --!strict
 
+local RunService = game:GetService("RunSerivce")
+
 local NexusReplication = require(script.Parent.Parent.Parent)
 
 local NexusInstance = require(script.Parent.Parent.Parent:WaitForChild("NexusInstance"))
@@ -144,7 +146,7 @@ function ReplicatedContainer.__new(self: NexusInstanceReplicatedContainer): ()
     self.ChildRemoved = self:CreateEvent() :: NexusInstance.TypedEvent<NexusInstanceReplicatedContainer>
 
     --Connect destroying the object.
-    if not NexusReplication:IsServer() then
+    if not RunService:IsServer() then
         self:ListenToSignal("Destroy", function()
             self:Destroy()
         end)
@@ -193,7 +195,7 @@ function ReplicatedContainer.AddToSerialization(self: NexusInstanceReplicatedCon
     table.insert(self.SerializedProperties, PropertyName)
 
     --Replicate changes from the server to the client.
-    if NexusReplication:IsServer() then
+    if RunService:IsServer() then
         self:OnPropertyChanged(PropertyName, function(_, NewValue: any)
             self:SendSignal("Changed_"..PropertyName, EncodeIds(NewValue))
         end)
@@ -325,7 +327,7 @@ Destroys the object.
 --]]
 function ReplicatedContainer.Destroy(self: NexusInstanceReplicatedContainer)
     --Unregister the object.
-    if NexusReplication:IsServer() then
+    if RunService:IsServer() then
         self:SendSignal("Destroy")
     end
     ObjectReplication:DisposeObject(self.Id)
