@@ -19,7 +19,7 @@ Dumps an object's information.
 --]]
 local function DumpObject(Object: ObjectReplicator.StubbedReplicatableInstance, AddPrint: (string) -> (), AddWarning: (string) -> (), AddIgnore: (string) -> ()): ()
     --Output the name.
-    AddPrint("     Object "..tostring(Object.Id).." ("..tostring(Object.Type)..")")
+    AddPrint(`     Object {Object.Id} ({Object.Type})`)
 
     --Output the properties.
     for _, PropertyName in Object.SerializedProperties or {} :: {string} do
@@ -27,31 +27,31 @@ local function DumpObject(Object: ObjectReplicator.StubbedReplicatableInstance, 
         if typeof(Value) == "table" and Value.Id and Value.SerializedProperties then
             local Id = Value.Id
             if ObjectRegistry[Id] then
-                AddPrint("         "..tostring(PropertyName).." (ReplicatedContainer): "..tostring(Id))
+                AddPrint(`         {PropertyName} (ReplicatedContainer): {Id}`)
             elseif DisposeObjectRegistry[Id] then
-                AddWarning("         "..tostring(PropertyName).." (ReplicatedContainer): "..tostring(Id).." (Disposed but not garbage collected)")
+                AddWarning(`         {PropertyName} (ReplicatedContainer): {Id} (Disposed but not garbage collected)`)
             else
-                AddWarning("         "..tostring(PropertyName).." (ReplicatedContainer): "..tostring(Id).." (Garbage collected)")
+                AddWarning(`         {PropertyName} (ReplicatedContainer): {Id} (Garbage collected)`)
             end
         else
             if typeof(Value) == "table" then
-                AddPrint("         "..tostring(PropertyName).." (Table):")
+                AddPrint(`         {PropertyName} (Table):`)
                 for Index, SubObject in Value do
                     if typeof(SubObject) == "table" and SubObject.Id and SubObject.SerializedProperties then
                         local Id = SubObject.Id
                         if ObjectRegistry[Id] then
-                            AddPrint("           "..tostring(Index).." (ReplicatedContainer): "..tostring(Id))
+                            AddPrint(`           {Index} (ReplicatedContainer): {Id}`)
                         elseif DisposeObjectRegistry[Id] then
-                            AddWarning("           "..tostring(Index).." (ReplicatedContainer): "..tostring(Id).." (Disposed but not garbage collected)")
+                            AddWarning(`           {Index} (ReplicatedContainer): {Id} (Disposed but not garbage collected)`)
                         else
-                            AddWarning("           "..tostring(Index).." (ReplicatedContainer): "..tostring(Id).." (Garbage collected)")
+                            AddWarning(`           {Index} (ReplicatedContainer): {Id} (Garbage collected)`)
                         end
                     else
-                        AddIgnore("           "..tostring(Index).." (Other): "..tostring(SubObject or "nil"))
+                        AddIgnore(`           {Index} (Other): {SubObject or "nil"}`)
                     end
                 end
             else
-                AddIgnore("         "..tostring(PropertyName).." (Other): "..tostring(Value or "nil"))
+                AddIgnore(`         {PropertyName} (Other): {Value or "nil"}`)
             end
         end
     end
@@ -91,7 +91,7 @@ local function BuildObjectDump(): {{[string]: any}}
     local function AddIgnore(Line)
         table.insert(Lines,{Text=Line,Type="Ignore"})
     end
-    AddPrint("OBJECT DUMP ("..tostring(Players.LocalPlayer and Players.LocalPlayer.Name or "Server")..")")
+    AddPrint(`OBJECT DUMP ({Players.LocalPlayer and Players.LocalPlayer.Name or "Server"})`)
     AddPrint("   Object Registry (kept until manually destroyed):")
     DumpObjectTable(ObjectRegistry, AddPrint, WarnPrint, AddIgnore)
 
