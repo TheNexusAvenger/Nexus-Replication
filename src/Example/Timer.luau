@@ -101,4 +101,4 @@ end
 
 
 
-return NexusInstance.ToInstance(Timer) :: NexusInstance.NexusInstanceClass<typeof(Timer), () -> (Timer)>
+return NexusInstance.ToInstance(Timer) :: NexusInstance.NexusInstanceClass<typeof(Timer), () -> (NexusInstanceTimer)>

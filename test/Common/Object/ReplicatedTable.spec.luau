@@ -85,13 +85,13 @@ return function()
             expect(TestReplicatedTable:Find("Test1")).to.equal(1)
             expect(TestReplicatedTable:Find("Test3")).to.equal(3)
             expect(TestReplicatedTable:Find("Test5")).to.equal(nil)
-            expect(TestReplicatedTable:Find(nil)).to.equal(nil)
+            expect(TestReplicatedTable:Find(nil :: any)).to.equal(nil)
 
             --Test checking for contained values.
             expect(TestReplicatedTable:Contains("Test1")).to.equal(true)
             expect(TestReplicatedTable:Contains("Test3")).to.equal(true)
             expect(TestReplicatedTable:Contains("Test5")).to.equal(false)
-            expect(TestReplicatedTable:Contains(nil)).to.equal(false)
+            expect(TestReplicatedTable:Contains(nil :: any)).to.equal(false)
         end)
     end)
 end

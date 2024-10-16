@@ -2,6 +2,7 @@
 --!strict
 
 local NexusReplicationModule = game:GetService("ReplicatedStorage"):WaitForChild("NexusReplication")
+
 local Timer = require(NexusReplicationModule:WaitForChild("Example"):WaitForChild("Timer"))
 
 return function()
