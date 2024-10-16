@@ -19,7 +19,8 @@ export type StubbedReplicatableInstanceClass = {
 export type StubbedReplicatableInstance = {
     Type: string,
     Id: number,
-    Serialize: (self: StubbedReplicatableInstance) -> (any),
+    Serialize: ((self: StubbedReplicatableInstance) -> (any))?,
+    SerializedProperties: {string}?,
     [any]: any,
 }
 export type ReplicatorRole = "Client" | "Server"
@@ -142,7 +143,7 @@ function ObjectReplication.ConnectReplication(self: NexusInstanceObjectReplicati
                 table.insert(Objects,{
                     Type = Object.Type,
                     Id = Object.Id,
-                    Object = Object:Serialize(),
+                    Object = self:SerializeObjectData(Object),
                 })
             end
             return Objects
@@ -271,9 +272,6 @@ end
 Registers a class for a type.
 --]]
 function ObjectReplication.RegisterType(self: NexusInstanceObjectReplication, Type: string, Class: any): ()
-    if Class.AddFromSerializeData then
-        Class:AddFromSerializeData(Type)
-    end
     self.TypeClasses[Type] = Class
     self.TypeRegistered:Fire()
 end
@@ -289,6 +287,28 @@ function ObjectReplication.GetClass(self: NexusInstanceObjectReplication, Type: 
 
     --Return the class.
     return self.TypeClasses[Type]
+end
+
+--[[
+Serializes the data of an object.
+--]]
+function ObjectReplication.SerializeObjectData(self: NexusInstanceObjectReplication, Object: StubbedReplicatableInstance): any
+    --Return the value of the serialize method.
+    if Object.Serialize then
+        return (Object :: any):Serialize()
+    end
+
+    --Serialize the properties.
+    if Object.SerializedProperties then
+        local Properties = {}
+        for _, PropertyName in Object.SerializedProperties do
+            Properties[PropertyName] = (Object :: any)[PropertyName]
+        end
+        return self:EncodeIds(Properties)
+    end
+
+    --Reutrn nil data.
+    return nil
 end
 
 --[[
@@ -320,7 +340,7 @@ function ObjectReplication.CreateObject(self: NexusInstanceObjectReplication, Ty
         self.ObjectCreatedEvent:FireAllClients({
             Type = Type,
             Id = Object.Id,
-            Object = Object:Serialize(),
+            Object = self:SerializeObjectData(Object),
         })
     end
 
@@ -378,8 +398,13 @@ function ObjectReplication.LoadObject(self: NexusInstanceObjectReplication, Obje
     if Class.FromSerializedData then
         Object = Class.FromSerializedData(ObjectData.Object, ObjectData.Id)
     else
-        Object = Class.new()
-        Object.Id = ObjectData.Id
+        Object = self:CreateObject(ObjectData.Type, ObjectData.Id)
+        if Object.SerializedProperties then
+            local Properties = self:DecodeIds(ObjectData.Object)
+            for _, PropertyName in Object.SerializedProperties do
+                (Object :: any)[PropertyName] = Properties[PropertyName]
+            end
+        end
     end
 
     --Run the queued signals.

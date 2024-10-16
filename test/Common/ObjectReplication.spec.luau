@@ -76,6 +76,29 @@ return function()
             expect(TestObjectReplication.DisposeObjectRegistry[1]).to.equal(nil)
         end)
 
+        it("should serialize objects with a Serialize method.", function()
+            local Data = TestObjectReplication:SerializeObjectData({
+                Serialize = function()
+                    return "TestData"
+                end,
+            })
+
+            expect(Data).to.equal("TestData")
+        end)
+
+        it("should serialize objects with SerializedProperties.", function()
+            local Data = TestObjectReplication:SerializeObjectData({
+                Property1 = "TestValue1",
+                Property2 = "TestValue2",
+                Property3 = "TestValue3",
+                SerializedProperties = {"Property1", "Property2"},
+            })
+
+            expect(Data.Property1).to.equal("TestValue1")
+            expect(Data.Property2).to.equal("TestValue2")
+            expect(Data.Property3).to.equal(nil)
+        end)
+
         it("should create objects with given ids.", function()
             local TestClass = {
                 new = function()
@@ -313,6 +336,7 @@ return function()
             local TestClass = {
                 new = function()
                     return {
+                        SerializedProperties = {"TestProperty"},
                         Serialize = function()
                             return "TestData"
                         end,
@@ -324,9 +348,13 @@ return function()
             local TestObject = TestObjectReplication:LoadObject({
                 Type = "TestClass",
                 Id = 5,
-                Object = "Data",
+                Object = {
+                    TestProperty = "TestValue",
+                },
             })
             expect(TestObject.Id).to.equal(5)
+            expect(TestObject.Type).to.equal("TestClass")
+            expect(TestObject.TestProperty).to.equal("TestValue")
         end)
 
         it("should load objects with queued signals.", function()

@@ -69,40 +69,6 @@ function ReplicatedContainer.__new(self: NexusInstanceReplicatedContainer): ()
 end
 
 --[[
-Adds a FromSerializeData method to the class.
---]]
-function ReplicatedContainer.AddFromSerializeData(self: any, Type: string): ()
-    function self.FromSerializedData(SerializationData: any, Id: number): ReplicatedContainer
-        --Create the object.
-        local Object = ObjectReplication:CreateObject(Type, Id)
-
-        --Deserialize the properties.
-        local Properties = ObjectReplication:DecodeIds(SerializationData)
-        for _, PropertyName in Object.SerializedProperties do
-            (Object :: any)[PropertyName] = Properties[PropertyName]
-        end
-
-        --Return the object.
-        return Object
-    end
-end
-ReplicatedContainer:AddFromSerializeData("ReplicatedContainer")
-
---[[
-Serializes the object.
---]]
-function ReplicatedContainer.Serialize(self: NexusInstanceReplicatedContainer): any
-    --Serialize the properties.
-    local Properties = {}
-    for _, PropertyName in self.SerializedProperties do
-        Properties[PropertyName] = (self :: any)[PropertyName]
-    end
-
-    --Return the properties.
-    return ObjectReplication:EncodeIds(Properties)
-end
-
---[[
 Adds a property to serialize.
 --]]
 function ReplicatedContainer.AddToSerialization(self: NexusInstanceReplicatedContainer, PropertyName: string): ()
