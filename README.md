@@ -20,20 +20,30 @@ extra steps are required.
 
 ```lua
 --ModuleScript: ReplicatedStorage.DemoRound
+--!strict
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
-local NexusReplication = require(game:GetService("ReplicatedStorage"):WaitForChild("NexusReplication"))
-local ReplicatedContainer = NexusReplication:GetResource("Common.Object.ReplicatedContainer")
+local NexusReplication = require(ReplicatedStorage:WaitForChild("NexusReplication"))
 
-local DemoRound = ReplicatedContainer:Extend()
-DemoRound:SetClassName("DemoRound")
-NexusReplication:RegisterType("DemoRound",DemoRound)
+local DemoRound = {}
+DemoRound.__index = DemoRound
+setmetatable(DemoRound, NexusReplication.ReplicatedContainer)
+NexusReplication:RegisterType("DemoRound", DemoRound)
+
+export type DemoRound = {
+    State: "NOT_STARTED" | "ACTIVE" | "COMPLETE" | "ENDED",
+    Players: NexusReplication.NexusInstanceReplicatedTable<Player>,
+    Timer: NexusReplication.NexusInstanceTimer,
+} & typeof(setmetatable({}, DemoRound)) & NexusReplication.NexusInstanceReplicatedContainer
+export type NexusInstanceDemoRound = NexusReplication.NexusInstance<DemoRound>
 
 --[[
 Creates the round.
 --]]
-function DemoRound:__new()
-    ReplicatedContainer.__new(self)
+function DemoRound.__new(self: NexusInstanceDemoRound)
+    NexusReplication.ReplicatedContainer.__new(self)
     self.Name = "DemoRound"
 
     --Create the state.
@@ -67,7 +77,7 @@ end
 --[[
 Starts the round.
 --]]
-function DemoRound:Start()
+function DemoRound.Start(self: NexusInstanceDemoRound)
     if self.State ~= "NOT_STARTED" then return end
     self.State = "ACTIVE"
     self.Timer:Start()
@@ -76,27 +86,31 @@ function DemoRound:Start()
     end
 end
 
-return DemoRound
+return NexusReplication.ToInstance(DemoRound) :: NexusReplication.NexusInstanceClass<typeof(DemoRound), () -> (NexusInstanceDemoRound)>
 ```
 
 Creating the object is a bit more complicated compared to
 Nexus Instance, but is similar to Roblox's `Instance`.
 ```lua
 --Script: ServerScriptService.CreateRound
+--!strict
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 --Any classes that register themself must be done before
 --creating them. This can be done anywhere, and is recommended
 --to be centralized with a wrapper.
-require(game:GetService("ReplicatedStorage"):WaitForChild("DemoRound"))
+local DemoRound = require(ReplicatedStorage:WaitForChild("DemoRound"))
 
 --Create the round.
-local NexusReplication = require(game:GetService("ReplicatedStorage"):WaitForChild("NexusReplication"))
-local Round = NexusReplication:CreateObject("DemoRound")
+local NexusReplication = require(ReplicatedStorage:WaitForChild("NexusReplication"))
+local Round = NexusReplication:CreateObject("DemoRound") :: DemoRound.NexusInstanceDemoRound
 Round.Name = "MyRound"
 Round.Parent = NexusReplication:GetGlobalContainer()
 
 --Add and start the round after a player enters.
-game:GetService("Players").PlayerAdded:Connect(function(Player)
+Players.PlayerAdded:Connect(function(Player)
     wait(5)
     Round.Players:Add(Player)
     Round:Start()
@@ -107,26 +121,29 @@ And lastly, listening to the round on the client can be done
 with the following:
 ```lua
 --LocalScript: StarterPlayer.StarterPlayerScripts.RoundListener
+--!strict
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 --Any classes that register themself must be done before
 --creating them. This can be done anywhere, and is recommended
 --to be centralized with a wrapper.
-require(game:GetService("ReplicatedStorage"):WaitForChild("DemoRound"))
+local DemoRound = require(ReplicatedStorage:WaitForChild("DemoRound"))
 
 --Get the round.
-local NexusReplication = require(game:GetService("ReplicatedStorage"):WaitForChild("NexusReplication"))
-local Round = NexusReplication:GetGlobalContainer():WaitForChildBy("Name","MyRound")
+local NexusReplication = require(ReplicatedStorage:WaitForChild("NexusReplication"))
+local Round = NexusReplication:GetGlobalContainer():WaitForChildBy("Name", "MyRound") :: DemoRound.DemoRound
 
 --Connect being added to the round.
 Round.Players.ItemAdded:Connect(function(Player)
-    print("Now in round: "..Player.DisplayName)
+    print(`Now in round: {Player.DisplayName}`)
 end)
 
 --Connect the state changing.
 Round:GetPropertyChangedSignal("State"):Connect(function()
-    print("New round state: "..Round.State)
+    print(`New round state: {Round.State}`)
 end)
-print("Round state: "..Round.State)
+print(`Round state: {Round.State}`)
 ```
 
 The output for the code above should be similar to the following:

@@ -1,27 +1,33 @@
 --Initializes Nexus Replication.
 --!strict
 
+local NexusInstance = require(script:WaitForChild("NexusInstance"))
+local ObjectReplication = require(script:WaitForChild("Common"):WaitForChild("ObjectReplication"))
+local ReplicatedContainer = require(script:WaitForChild("Common"):WaitForChild("Object"):WaitForChild("ReplicatedContainer"))
+local ReplicatedTable = require(script:WaitForChild("Common"):WaitForChild("Object"):WaitForChild("ReplicatedTable"))
+local Timer = require(script:WaitForChild("Example"):WaitForChild("Timer"))
+
 local NexusReplication = {}
+NexusReplication.ReplicatedContainer = ReplicatedContainer
+NexusReplication.ReplicatedTable = ReplicatedTable
+NexusReplication.Timer = Timer
+NexusReplication.ToInstance = NexusInstance.ToInstance
+
+export type TypedEvent<T...> = NexusInstance.TypedEvent<T...>
+export type NexusInstanceClass<TClass, TConstructor> = NexusInstance.NexusInstanceClass<TClass, TConstructor>
+export type NexusInstance<TObject> = NexusInstance.NexusInstance<TObject>
+
+export type NexusInstanceReplicatedContainer = ReplicatedContainer.NexusInstanceReplicatedContainer
+export type NexusInstanceReplicatedTable<T> = ReplicatedTable.NexusInstanceReplicatedTable<T>
+export type NexusInstanceTimer = Timer.NexusInstanceTimer
 
 
-
---[[
-Returns a resource for a path.
-Legacy from Nexus Project.
---]]
-function NexusReplication:GetResource(Path: string): any
-    local ModuleScript = script
-    for _, PathPart in string.split(Path, ".") do
-        ModuleScript = (ModuleScript :: any)[PathPart]
-    end
-    return require(ModuleScript :: ModuleScript) :: any
-end
 
 --[[
 Returns the static object replicator.
 --]]
 function NexusReplication:GetObjectReplicator(): any
-    return require(script:WaitForChild("Common"):WaitForChild("ObjectReplication")).GetInstance()
+    return ObjectReplication.GetInstance()
 end
 
 --[[
