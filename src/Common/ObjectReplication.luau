@@ -1,6 +1,11 @@
 --Base for replicating objects.
 --!strict
 
+local COLLECTION_SERVICE_TAG = "NexusReplicationReferencedInstance"
+local ID_ATTRIBUTE_NAME = "NexusReplicationInstanceId"
+
+local CollectionService = game:GetService("CollectionService")
+local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
 
 local NexusInstance = require(script.Parent.Parent:WaitForChild("NexusInstance"))
@@ -32,6 +37,7 @@ export type ObjectReplication = {
     TypeRegistered: NexusInstance.TypedEvent<>,
     ObjectRegistry: {[number]: StubbedReplicatableInstance},
     DisposeObjectRegistry: {[number]: StubbedReplicatableInstance},
+    EventConnections: {RBXScriptConnection},
     ObjectCreatedEvent: RemoteEvent,
     SendSignalEvent: RemoteEvent,
     GetObjectsFunction: RemoteFunction,
@@ -40,6 +46,8 @@ export type ObjectReplication = {
         InitialObjectsLoading: number,
         InitialIds: {[number]: boolean}?,
         QueuedSignals: {[number]: {any}},
+        PendingInstanceAddedUpdates: {[number]: {[string]: string}},
+        PendingAddedInstanceUpdates: {[string]: {{Id: number, Key: string}}},
         LoadingStarted: NexusInstance.TypedEvent<>?,
         ObjectLoaded: NexusInstance.TypedEvent<>,
     }?,
@@ -59,6 +67,7 @@ function ObjectReplication.__new(self: NexusInstanceObjectReplication, Replicato
     self.TypeRegistered = self:CreateEvent()
     self.ObjectRegistry = {} :: {StubbedReplicatableInstance}
     self.DisposeObjectRegistry = {}
+    self.EventConnections = {}
     setmetatable(self.DisposeObjectRegistry, {__mode="v"})
 
     --Store or determine the replicator role.
@@ -74,14 +83,38 @@ function ObjectReplication.__new(self: NexusInstanceObjectReplication, Replicato
     if self.ReplicatorRole == "Client" then
         self.CurrentId = -1
         self.IdIncrementer = -1
-        self.Client = {
+        local ClientState = {
             LoadingRequested = false,
             InitialObjectsLoading = 0,
             InitialIds = nil, --Set in LoadServerObjects
             QueuedSignals = {},
+            PendingInstanceAddedUpdates = {},
+            PendingAddedInstanceUpdates = {},
             LoadingStarted = self:CreateEvent(),
             ObjectLoaded = self:CreateEvent(),
         }
+        self.Client = ClientState
+
+        --Listen for instances being added.
+        table.insert(self.EventConnections, CollectionService:GetInstanceAddedSignal(COLLECTION_SERVICE_TAG):Connect(function(AddedInstance)
+            local ReferenceId = AddedInstance:GetAttribute(ID_ATTRIBUTE_NAME)
+            if not ReferenceId then return end
+
+            --Return if there are no instance references to update.
+            local ObjectReferencesToUpdate = ClientState.PendingAddedInstanceUpdates[ReferenceId]
+            if not ObjectReferencesToUpdate then return end
+
+            --Update the references.
+            for _, ObjectToUpdateData in ObjectReferencesToUpdate do
+                local ObjectToUpdate = ClientState.PendingInstanceAddedUpdates[ObjectToUpdateData.Id]
+                if not ObjectToUpdate then continue end
+                if ObjectToUpdate[ObjectToUpdateData.Key] ~= ReferenceId then continue end
+                local Object = self:GetObject(ObjectToUpdateData.Id)
+                if Object == nil then continue end
+                (Object :: any)[ObjectToUpdateData.Key] = AddedInstance
+            end
+            ClientState.PendingAddedInstanceUpdates[ReferenceId] = nil 
+        end))
     end
 end
 
@@ -197,6 +230,15 @@ function ObjectReplication.EncodeIds(self: NexusInstanceObjectReplication, Table
 
     --Return if the table is not a table.
     if Table == nil then return nil end
+    if typeof(Table) == "Instance" then
+        if not Table:HasTag(COLLECTION_SERVICE_TAG) then
+            Table:AddTag(COLLECTION_SERVICE_TAG)
+        end
+        if not Table:GetAttribute(ID_ATTRIBUTE_NAME) then
+            Table:SetAttribute(ID_ATTRIBUTE_NAME, HttpService:GenerateGUID(false))
+        end
+        return {__InstanceReferenceId = Table:GetAttribute(ID_ATTRIBUTE_NAME), __Instance = Table}
+    end
     if CheckedValues[Table] or type(Table) ~= "table" then
         CheckedValues[Table] = true
         return Table
@@ -246,6 +288,23 @@ function ObjectReplication.DecodeIds(self: NexusInstanceObjectReplication, Table
         return self:GetObject(Table.__KeyToDecode)
     end
 
+    --Return if the table is an instance reference.
+    --This does not allow for instance reference updates.
+    if Table.__InstanceReferenceId then
+        --Return the instance that is stored.
+        if Table.__Instance then
+            return Table.__Instance
+        end
+        
+        --Try to find the instance.
+        local InstanceReferenceId = Table.__InstanceReferenceId
+        for _, Ins in CollectionService:GetTagged(COLLECTION_SERVICE_TAG) do
+            if Ins:GetAttribute(ID_ATTRIBUTE_NAME) ~= InstanceReferenceId then continue end
+            return Ins
+        end
+        return nil
+    end
+
     --Get the list of keys.
     local NewTable = Table
     if NewTable.__KeysToDecode then
@@ -253,15 +312,22 @@ function ObjectReplication.DecodeIds(self: NexusInstanceObjectReplication, Table
     end
     local Keys = {}
     for Key, _ in NewTable do
-        table.insert(Keys,Key)
+        table.insert(Keys, Key)
+    end
+
+    --Decode the instances.
+    for _, Key in Keys do
+        local InstanceReference = NewTable[Key]
+        if typeof(InstanceReference) ~= "table" or not InstanceReference.__InstanceReferenceId then continue end
+        NewTable[Key] = self:DecodeIds(NewTable[Key])
     end
 
     --Decode the keys.
-    for _,Key in Keys do
+    for _, Key in Keys do
         NewTable[Key] = self:DecodeIds(NewTable[Key])
     end
     if Table.__KeysToDecode then
-        for _,Key in Table.__KeysToDecode do
+        for _, Key in Table.__KeysToDecode do
             NewTable[Key] = self:GetObject(NewTable[Key])
         end
     end
@@ -425,9 +491,25 @@ function ObjectReplication.LoadObject(self: NexusInstanceObjectReplication, Obje
     else
         Object = self:CreateObject(ObjectData.Type, ObjectData.Id)
         if Object.SerializedProperties then
+            --Clone the raw properties since DecodeIds mutates the table.
+            local RawProperties = {}
+            local RawObjectData = ObjectData.Object.Data or ObjectData.Object
+            for _, PropertyName in Object.SerializedProperties do
+                RawProperties[PropertyName] = RawObjectData[PropertyName]
+            end
+
+            --Apply the properties.
             local Properties = self:DecodeIds(ObjectData.Object)
             for _, PropertyName in Object.SerializedProperties do
-                (Object :: any)[PropertyName] = Properties[PropertyName]
+                local PropertyValue = Properties[PropertyName]
+                if PropertyValue ~= nil then
+                    (Object :: any)[PropertyName] = PropertyValue
+                else
+                    local RawPropertyValue = RawProperties[PropertyName]
+                    if RawPropertyValue ~= nil and typeof(RawPropertyValue) == "table" and RawPropertyValue.__InstanceReferenceId then
+                        self:StoreInstanceReferenceToUpdate(ObjectData.Id, PropertyName, RawPropertyValue.__InstanceReferenceId)
+                    end
+                end
             end
         end
     end
@@ -442,6 +524,28 @@ function ObjectReplication.LoadObject(self: NexusInstanceObjectReplication, Obje
 
     --Return the object.
     return Object
+end
+
+--[[
+Stores an instance reference to update later when added.
+--]]
+function ObjectReplication.StoreInstanceReferenceToUpdate(self: NexusInstanceObjectReplication, Id: number, Key: string, ReferenceId: string): ()
+    if not self.Client then return end
+
+    --Store the id to update in the object.
+    if not self.Client.PendingInstanceAddedUpdates[Id] then
+        self.Client.PendingInstanceAddedUpdates[Id] = {}
+    end
+    self.Client.PendingInstanceAddedUpdates[Id][Key] = ReferenceId
+
+    --Store the location to check when the instance is added.
+    if not self.Client.PendingAddedInstanceUpdates[ReferenceId] then
+        self.Client.PendingAddedInstanceUpdates[ReferenceId] = {}
+    end
+    table.insert(self.Client.PendingAddedInstanceUpdates[ReferenceId], {
+        Id = Id,
+        Key = Key,
+    })
 end
 
 --[[
@@ -469,6 +573,10 @@ function ObjectReplication.DisposeObject(self: NexusInstanceObjectReplication, I
     --but still in use (and isn't garbage collected).
     self.DisposeObjectRegistry[Id] = self.ObjectRegistry[Id]
     self.ObjectRegistry[Id] = nil
+
+    --Clear updates to instances.
+    if not self.Client then return end
+    self.Client.PendingInstanceAddedUpdates[Id] = nil
 end
 
 --[[
@@ -520,6 +628,11 @@ end
 Destroys the object replication.
 --]]
 function ObjectReplication.Destroy(self: NexusInstanceObjectReplication): ()
+    for _, EventConnection in self.EventConnections do
+        EventConnection:Disconnect()
+    end
+    self.EventConnections = {}
+
     self.ObjectCreatedEvent:Destroy()
     self.SendSignalEvent:Destroy()
     self.GetObjectsFunction:Destroy()

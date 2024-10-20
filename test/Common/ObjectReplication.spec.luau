@@ -3,6 +3,8 @@
 --$NexusUnitTestExtensions
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local HttpService = game:GetService("HttpService")
+local TestService = game:GetService("TestService")
 
 local ObjectReplication = require(ReplicatedStorage:WaitForChild("NexusReplication"):WaitForChild("Common"):WaitForChild("ObjectReplication"))
 
@@ -267,6 +269,29 @@ return function()
             expect(TestObjectReplication:EncodeIds({Key1=TestReplicatedContainer1, Key2 = TestReplicatedContainer2, Key3 = {TestReplicatedContainer1, TestReplicatedContainer3}})).to.deepEqual({__KeysToDecode = {"Key1", "Key2"}, Data = {Key1 = -1, Key2 = -2, Key3 = {__KeysToDecode = {1, 2}, Data={-1, -3}}}})
         end)
 
+        it("should encode instances directly.", function()
+            local TestPart = Instance.new("Part")
+            local EncodedIds = TestObjectReplication:EncodeIds(TestPart)
+            expect(EncodedIds.__InstanceReferenceId).to.equal(TestPart:GetAttribute("NexusReplicationInstanceId"))
+            expect(EncodedIds.__Instance).to.equal(TestPart)
+            expect(TestPart:HasTag("NexusReplicationReferencedInstance")).to.equal(true)
+        end)
+
+        it("should encode instances in tables.", function()
+            local TestPart1 = Instance.new("Part")
+            TestPart1:SetAttribute("NexusReplicationInstanceId", "TestId1")
+            local TestPart2 = Instance.new("Part")
+            TestPart2:SetAttribute("NexusReplicationInstanceId", "TestId2")
+            local EncodedIds = TestObjectReplication:EncodeIds({TestPart1, TestPart2, "Test" :: any})
+            expect(EncodedIds[1].__InstanceReferenceId).to.equal("TestId1")
+            expect(EncodedIds[1].__Instance).to.equal(TestPart1)
+            expect(EncodedIds[2].__InstanceReferenceId).to.equal("TestId2")
+            expect(EncodedIds[2].__Instance).to.equal(TestPart2)
+            expect(EncodedIds[3]).to.equal("Test")
+            expect(TestPart1:HasTag("NexusReplicationReferencedInstance")).to.equal(true)
+            expect(TestPart2:HasTag("NexusReplicationReferencedInstance")).to.equal(true)
+        end)
+
         it("should decode ids.", function()
             --Test decoding non-tables.
             expect(TestObjectReplication:DecodeIds(1)).to.equal(1)
@@ -280,8 +305,37 @@ return function()
             --Test decoding tables.
             expect(TestObjectReplication:DecodeIds({1, 2, 3})).to.deepEqual({1, 2, 3})
             expect(TestObjectReplication:DecodeIds({__KeysToDecode = {1, 2}, Data = {-1, -2}})).to.deepEqual({TestReplicatedContainer1, TestReplicatedContainer2})
-            expect(TestObjectReplication:DecodeIds({{__KeysToDecode={1, 2}, Data={-1, -2}}, {__KeysToDecode = {1, 2}, Data = {-2, -3}}})).to.deepEqual({{TestReplicatedContainer1, TestReplicatedContainer2}, {TestReplicatedContainer2, TestReplicatedContainer3}})
+            expect(TestObjectReplication:DecodeIds({{__KeysToDecode = {1, 2}, Data = {-1, -2}}, {__KeysToDecode = {1, 2}, Data = {-2, -3}}})).to.deepEqual({{TestReplicatedContainer1, TestReplicatedContainer2}, {TestReplicatedContainer2, TestReplicatedContainer3}})
             expect(TestObjectReplication:DecodeIds({__KeysToDecode={"Key1", "Key2"}, Data = {Key1 = -1, Key2 = -2, Key3 = {__KeysToDecode={1, 2}, Data={-1, -3}}}})).to.deepEqual({Key1 = TestReplicatedContainer1, Key2 = TestReplicatedContainer2,Key3 = {TestReplicatedContainer1, TestReplicatedContainer3}})
+        end)
+
+        it("should decode instances directly.", function()
+            local TestPart = Instance.new("Part")
+            expect(TestObjectReplication:DecodeIds({__InstanceReferenceId = "TestId", __Instance = TestPart})).to.equal(TestPart)
+        end)
+
+        it("should decode instances in tables.", function()
+            local TestPart1 = Instance.new("Part")
+            TestPart1:SetAttribute("NexusReplicationInstanceId", "TestId1")
+            local TestPart2 = Instance.new("Part")
+            TestPart2:SetAttribute("NexusReplicationInstanceId", "TestId2")
+            local DecodedIds = TestObjectReplication:DecodeIds({
+                {__InstanceReferenceId = "TestId1", __Instance = TestPart1}, 
+                {__InstanceReferenceId = "TestId2", __Instance = TestPart2},
+                "Test" :: any
+            })
+            expect(DecodedIds[1]).to.equal(TestPart1)
+            expect(DecodedIds[2]).to.equal(TestPart2)
+            expect(DecodedIds[3]).to.equal("Test")
+        end)
+
+        it("should decode loaded instances with missing references.", function()
+            local TestId = HttpService:GenerateGUID()
+            local TestPart = Instance.new("Part")
+            TestPart:AddTag("NexusReplicationReferencedInstance")
+            TestPart:SetAttribute("NexusReplicationInstanceId", TestId)
+            TestPart.Parent = TestService
+            expect(TestObjectReplication:DecodeIds({__InstanceReferenceId = TestId})).to.equal(TestPart)
         end)
     end)
 
@@ -337,7 +391,7 @@ return function()
             local TestClass = {
                 new = function()
                     return {
-                        SerializedProperties = {"TestProperty"},
+                        SerializedProperties = {"TestProperty1", "TestProperty2"},
                         Serialize = function()
                             return "TestData"
                         end,
@@ -346,16 +400,59 @@ return function()
             }
             TestObjectReplication:RegisterType("TestClass", TestClass)
 
+            local TestInstance = Instance.new("Part")
+            TestInstance:AddTag("NexusReplicationReferencedInstance")
+            TestInstance:SetAttribute("NexusReplicationInstanceId", "TestId")
             local TestObject = TestObjectReplication:LoadObject({
                 Type = "TestClass",
                 Id = 5,
                 Object = {
-                    TestProperty = "TestValue",
+                    TestProperty1 = "TestValue",
+                    TestProperty2 = {__InstanceReferenceId = "TestId", __Instance = TestInstance},
                 },
             })
             expect(TestObject.Id).to.equal(5)
             expect(TestObject.Type).to.equal("TestClass")
-            expect(TestObject.TestProperty).to.equal("TestValue")
+            expect(TestObject.TestProperty1).to.equal("TestValue")
+            expect(TestObject.TestProperty2).to.equal(TestInstance)
+        end)
+
+        it("should load objects without FromSerializedData and unloaded instances.", function()
+            local TestClass = {
+                new = function()
+                    return {
+                        SerializedProperties = {"TestProperty1", "TestProperty2"},
+                        Serialize = function()
+                            return "TestData"
+                        end,
+                    }
+                end,
+            }
+            TestObjectReplication:RegisterType("TestClass", TestClass)
+
+            local TestId = HttpService:GenerateGUID()
+            local TestInstance = Instance.new("Part")
+            TestInstance:AddTag("NexusReplicationReferencedInstance")
+            TestInstance:SetAttribute("NexusReplicationInstanceId", TestId)
+            task.delay(1, function()
+                TestInstance:Destroy()
+            end)
+
+            local TestObject = TestObjectReplication:LoadObject({
+                Type = "TestClass",
+                Id = 5,
+                Object = {
+                    TestProperty1 = "TestValue",
+                    TestProperty2 = {__InstanceReferenceId = TestId},
+                },
+            })
+            expect(TestObject.Id).to.equal(5)
+            expect(TestObject.Type).to.equal("TestClass")
+            expect(TestObject.TestProperty1).to.equal("TestValue")
+            expect(TestObject.TestProperty2).to.equal(nil)
+            TestInstance.Parent = TestService
+            task.wait()
+            expect(TestObject.TestProperty2).to.equal(TestInstance)
         end)
 
         it("should load objects with queued signals.", function()
