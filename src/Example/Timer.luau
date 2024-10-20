@@ -11,9 +11,9 @@ local Timer = {}
 Timer.__index = Timer
 setmetatable(Timer, ReplicatedContainer)
 
-export type TimerStatte = "STOPPED" | "ACTIVE" | "COMPLETE"
+export type TimerState = "STOPPED" | "ACTIVE" | "COMPLETE"
 export type Timer = {
-    State: TimerStatte,
+    State: TimerState,
     StartTime: number,
     RemainingTimeFromStart: number,
 } & typeof(setmetatable({}, Timer)) & ReplicatedContainer.ReplicatedContainer
@@ -61,7 +61,7 @@ function Timer.Start(self: NexusInstanceTimer): ()
     --Wait for the timer to finish.
     if RunService:IsServer() then
         task.delay(RemainingTime, function()
-            if (self.State :: TimerStatte) == "ACTIVE" and self.StartTime == StartTime and self.RemainingTimeFromStart == RemainingTime then
+            if (self.State :: TimerState) == "ACTIVE" and self.StartTime == StartTime and self.RemainingTimeFromStart == RemainingTime then
                 self.StartTime = Workspace:GetServerTimeNow()
                 self.RemainingTimeFromStart = 0
                 self.State = "COMPLETE"
