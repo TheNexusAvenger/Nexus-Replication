@@ -10,6 +10,8 @@ local ReplicatedContainer = {
         EncodeIds: (Value: any) -> (any),
         DecodeIds: (Value: any) -> (any),
         SendSignal: (Object: any, Name: string, ...any) -> (),
+        ResetInstanceReferenceToUpdate: (Id: number, Key: string) -> (),
+        StoreInstanceReferenceToUpdate: (Id: number, Key: string, ReferenceId: string) -> (),
         DisposeObject: (Id: number) -> (),
     }?,
 }
@@ -83,12 +85,21 @@ function ReplicatedContainer.AddToSerialization(self: NexusInstanceReplicatedCon
     if RunService:IsServer() then
         self:OnPropertyChanged(PropertyName, function(NewValue: any)
             if not self.ObjectReplicationIntegration then return end
-            self:SendSignal("Changed_"..PropertyName, self.ObjectReplicationIntegration.EncodeIds(NewValue))
+            self:SendSignal(`Changed_{PropertyName}`, self.ObjectReplicationIntegration.EncodeIds(NewValue))
         end)
     else
-        self:ListenToSignal("Changed_"..PropertyName, function(NewValue: any)
+        self:ListenToSignal(`Changed_{PropertyName}`, function(NewValue: any)
             if not self.ObjectReplicationIntegration then return end
-            (self :: any)[PropertyName] = self.ObjectReplicationIntegration.DecodeIds(NewValue)
+
+            --Set the value.
+            local NewDecodedValue = self.ObjectReplicationIntegration.DecodeIds(NewValue);
+            (self :: any)[PropertyName] = NewDecodedValue
+
+            --Queue updating the instance reference.
+            self.ObjectReplicationIntegration.ResetInstanceReferenceToUpdate(self.Id, PropertyName)
+            if NewDecodedValue then return end
+            if typeof(NewValue) ~= "table" or not NewValue.__InstanceReferenceId then return end
+            self.ObjectReplicationIntegration.StoreInstanceReferenceToUpdate(self.Id, PropertyName, NewValue.__InstanceReferenceId)
         end)
     end
 end

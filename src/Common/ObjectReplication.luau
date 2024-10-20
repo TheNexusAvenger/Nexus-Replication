@@ -351,6 +351,14 @@ function ObjectReplication.RegisterType(self: NexusInstanceObjectReplication, Ty
         SendSignal = function(Object: any, Name: string, ...: any): ()
             self:SendSignal(Object, Name, ...)
         end,
+        ResetInstanceReferenceToUpdate = function(Id: number, Key: string): ()
+            if not self.Client then return end
+            if not self.Client.PendingInstanceAddedUpdates[Id] then return end
+            self.Client.PendingInstanceAddedUpdates[Id][Key] = nil
+        end,
+        StoreInstanceReferenceToUpdate = function(Id: number, Key: string, ReferenceId: string): ()
+            self:StoreInstanceReferenceToUpdate(Id, Key, ReferenceId)
+        end,
         DisposeObject = function(Id: number)
             self:DisposeObject(Id)
         end,
