@@ -3,12 +3,20 @@
 --$NexusUnitTestExtensions
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CollectionService = game:GetService("CollectionService")
 local HttpService = game:GetService("HttpService")
 local TestService = game:GetService("TestService")
 
 local ObjectReplication = require(ReplicatedStorage:WaitForChild("NexusReplication"):WaitForChild("Common"):WaitForChild("ObjectReplication"))
 
 return function()
+    afterEach(function()
+        for _, Ins in CollectionService:GetTagged("NexusReplicationReferencedInstance") do
+            if not Ins:IsDescendantOf(TestService) then continue end
+            Ins:Destroy()
+        end
+    end)
+    
     describe("An ObjectReplication instance on the server", function()
         local TestObjectReplication = nil
         beforeEach(function()
@@ -434,9 +442,6 @@ return function()
             local TestInstance = Instance.new("Part")
             TestInstance:AddTag("NexusReplicationReferencedInstance")
             TestInstance:SetAttribute("NexusReplicationInstanceId", TestId)
-            task.delay(1, function()
-                TestInstance:Destroy()
-            end)
 
             local TestObject = TestObjectReplication:LoadObject({
                 Type = "TestClass",

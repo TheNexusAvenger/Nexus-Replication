@@ -633,9 +633,11 @@ function ObjectReplication.Destroy(self: NexusInstanceObjectReplication): ()
     end
     self.EventConnections = {}
 
-    self.ObjectCreatedEvent:Destroy()
-    self.SendSignalEvent:Destroy()
-    self.GetObjectsFunction:Destroy()
+    if self.ObjectCreatedEvent and self.SendSignalEvent and self.GetObjectsFunction then
+        self.ObjectCreatedEvent:Destroy()
+        self.SendSignalEvent:Destroy()
+        self.GetObjectsFunction:Destroy()
+    end
 end
 
 
