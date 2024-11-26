@@ -123,19 +123,25 @@ local function LoadNexusAdminCommand(NexusAdminModule: any): ()
     --Get or create the RemoteFunction.
     local CommandRun = function() end
     if RunService:IsClient() then
-        local ScrollingTextWindow = require(ReplicatedStorage:WaitForChild("NexusAdminClient"):WaitForChild("IncludedCommands"):WaitForChild("Resources"):WaitForChild("ScrollingTextWindow")) :: any
         local GetObjectDump = NexusAdmin.EventContainer:WaitForChild("NexusReplicationGetObjectDump")
         CommandRun = function(_: any, _: any, TargetPlayer: {Player}?)
-             --Display the text window.
-            local Window = ScrollingTextWindow.new()
-            Window.Title = "Object Dump - "..(TargetPlayer and TargetPlayer[1].Name or "Server")
-            Window.GetTextLines = function(_, SearchTerm: string, ForceRefresh: boolean)
+            --Display the text window.
+            local Window = NexusAdmin.Window:CreateWindow(`Object Dump - {TargetPlayer and TargetPlayer[1].Name or "Server"}`)
+            local TextList = Window:AddTextList()
+            TextList:EnableSearching()
+
+            local function UpdateText()
                 local Lines = {}
                 for _, Line in GetObjectDump:InvokeServer(TargetPlayer and TargetPlayer[1]) :: {{[string]: any}} do
-                    table.insert(Lines, {Text = Line.Text, TextColor3 = ((Line.Type == "Warn" and Color3.new(1, 0.6, 0)) or (Line.Type == "Ignore" and Color3.new(0.7, 0.7, 0.7)) or Color3.new(1, 1, 1))})
+                    table.insert(Lines, {Text = Line.Text, TextColor3 = ((Line.Type == "Warn" and Color3.fromRGB(255, 153, 0)) or (Line.Type == "Ignore" and Color3.fromRGB(178, 178, 178)) or Color3.fromRGB(255, 255, 255))})
                 end
-                return Lines
+                TextList:SetLines(Lines)
             end
+
+            task.spawn(UpdateText)
+            Window:EnableRefreshing(UpdateText)
+            Window:EnableClosing()
+            Window:EnableResizing()
             Window:Show()
         end
 
